@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model damage_dealt_events {
+  id                                                            Int            @id @default(autoincrement())
+  match_id                                                      String         @db.VarChar(50)
+  timestamp                                                     DateTime       @db.Timestamp(6)
+  game_time_seconds                                             Int?
+  actor_id                                                      Int?
+  recipient_id                                                  Int?
+  weapon_id                                                     String         @db.VarChar(100)
+  weapon_type                                                   String?        @db.VarChar(50)
+  damage_amount                                                 Float
+  actor_x                                                       Float
+  actor_y                                                       Float
+  actor_z                                                       Float
+  recipient_x                                                   Float
+  recipient_y                                                   Float
+  recipient_z                                                   Float
+  distance                                                      Float
+  zone                                                          Int
+  match_players_damage_dealt_events_actor_idTomatch_players     match_players? @relation("damage_dealt_events_actor_idTomatch_players", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  matches                                                       matches        @relation(fields: [match_id], references: [match_id], onDelete: NoAction, onUpdate: NoAction)
+  match_players_damage_dealt_events_recipient_idTomatch_players match_players? @relation("damage_dealt_events_recipient_idTomatch_players", fields: [recipient_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([actor_id], map: "idx_damage_actor")
+  @@index([distance], map: "idx_damage_distance")
+  @@index([match_id], map: "idx_damage_match")
+  @@index([recipient_id], map: "idx_damage_recipient")
+  @@index([game_time_seconds], map: "idx_damage_time")
+  @@index([weapon_type], map: "idx_damage_weapon")
+  @@index([zone], map: "idx_damage_zone")
+}
+
+model elimination_events {
+  id                                                           Int           @id @default(autoincrement())
+  match_id                                                     String        @db.VarChar(50)
+  timestamp                                                    DateTime      @db.Timestamp(6)
+  game_time_seconds                                            Int?
+  actor_id                                                     Int
+  recipient_id                                                 Int
+  weapon_id                                                    String        @db.VarChar(100)
+  weapon_type                                                  String?       @db.VarChar(50)
+  actor_x                                                      Float
+  actor_y                                                      Float
+  actor_z                                                      Float
+  recipient_x                                                  Float
+  recipient_y                                                  Float
+  recipient_z                                                  Float
+  distance                                                     Float
+  zone                                                         Int
+  match_players_elimination_events_actor_idTomatch_players     match_players @relation("elimination_events_actor_idTomatch_players", fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  matches                                                      matches       @relation(fields: [match_id], references: [match_id], onDelete: NoAction, onUpdate: NoAction)
+  match_players_elimination_events_recipient_idTomatch_players match_players @relation("elimination_events_recipient_idTomatch_players", fields: [recipient_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([actor_id], map: "idx_elim_actor")
+  @@index([match_id], map: "idx_elim_match")
+  @@index([recipient_id], map: "idx_elim_recipient")
+  @@index([zone], map: "idx_elim_zone")
+}
+
+model event_windows {
+  event_window_id       String    @id @db.VarChar(100)
+  processing            Boolean
+  processed             Boolean
+  failed                Boolean
+  discovered_at         DateTime  @db.Timestamp(6)
+  last_processing_start DateTime? @db.Timestamp(6)
+  last_processed        DateTime? @db.Timestamp(6)
+  last_failed           DateTime? @db.Timestamp(6)
+  start_time            DateTime? @db.Timestamp(6)
+  end_time              DateTime? @db.Timestamp(6)
+  total_matches         Int
+  processed_matches     Int
+  matches               matches[]
+  weapons               weapons[]
+}
+
+model match_players {
+  id                                                                  Int                   @id @default(autoincrement())
+  epic_id                                                             String                @db.VarChar(100)
+  epic_username                                                       String                @db.VarChar(100)
+  match_id                                                            String                @db.VarChar(50)
+  damage_dealt_events_damage_dealt_events_actor_idTomatch_players     damage_dealt_events[] @relation("damage_dealt_events_actor_idTomatch_players")
+  damage_dealt_events_damage_dealt_events_recipient_idTomatch_players damage_dealt_events[] @relation("damage_dealt_events_recipient_idTomatch_players")
+  elimination_events_elimination_events_actor_idTomatch_players       elimination_events[]  @relation("elimination_events_actor_idTomatch_players")
+  elimination_events_elimination_events_recipient_idTomatch_players   elimination_events[]  @relation("elimination_events_recipient_idTomatch_players")
+  matches                                                             matches               @relation(fields: [match_id], references: [match_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([epic_id, match_id], map: "idx_player_epic_match")
+  @@index([match_id], map: "idx_player_match")
+}
+
+model matches {
+  match_id            String                @id @db.VarChar(50)
+  event_window_id     String                @db.VarChar(50)
+  processing          Boolean
+  processed           Boolean
+  failed              Boolean
+  event_id            String?               @db.VarChar(100)
+  start_time          DateTime              @db.Timestamp(6)
+  end_time            DateTime?             @db.Timestamp(6)
+  gamemode            String?               @db.VarChar(100)
+  duration            DateTime?             @db.Timestamp(6)
+  player_count        Int?
+  created_at          DateTime              @db.Timestamp(6)
+  damage_dealt_events damage_dealt_events[]
+  elimination_events  elimination_events[]
+  match_players       match_players[]
+  event_windows       event_windows         @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model weapons {
+  id              Int           @id @default(autoincrement())
+  weapon_id       String        @db.VarChar(100)
+  weapon_type     String        @db.VarChar(50)
+  event_window_id String        @db.VarChar(100)
+  event_windows   event_windows @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([weapon_id, event_window_id], map: "idx_weapon_unique")
+  @@index([event_window_id], map: "idx_weapon_event_window")
+  @@index([weapon_type], map: "idx_weapon_type")
+  @@index([weapon_id], map: "idx_weapon_weapon_id")
+}
