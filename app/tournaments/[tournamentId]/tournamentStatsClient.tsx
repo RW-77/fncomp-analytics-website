@@ -2,6 +2,7 @@
 // tournamentStatsClient.tsx
 import { useState } from "react"
 import * as React from "react"
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   DropdownMenu,
@@ -110,14 +111,15 @@ interface Props {
   tournamentId: string
   matches: Array<{ id: string, label: string }>
   weapons: Array<{ id: string, label: string }>
+  allPlayers: Array<{ epicId: string, displayName: string }>
   initialData: any[]
 }
 
-export default function TournamentStatsClient({ tournamentId, matches, weapons, initialData }: Props) {
+export default function TournamentStatsClient({ tournamentId, matches, weapons, allPlayers, initialData }: Props) {
   const [selectedMatches, setSelectedMatches] = useState<string[]>(matches.map(m => m.id));
   const [selectedWeapons, setSelectedWeapons] = useState<string[]>(weapons.map(m => m.id));
   const [distanceRange, setDistanceRange] = useState<[number, number]>([0, 400]);
-  const [timeRange, setTimeRange] = useState<[number, number]>([0, 25]);
+  const [timeRange, setTimeRange] = useState<[number, number]>([0, 30]);
   const [data, setData] = useState<any[]>(initialData)
 
   const fetchData = async (
@@ -151,48 +153,65 @@ export default function TournamentStatsClient({ tournamentId, matches, weapons, 
     console.log("Eliminations results length:", elimResults?.length)
     console.log("Damage results length:", damageResults?.length)
 
-    // Merge: create a map with elim + damage data
+    // Initialize all players with 0 stats
     const playerMap = new Map<string, any>();
-    
-    // Add eliminations
-    elimResults?.forEach(stat => {
-      playerMap.set(stat.player, { ...stat, damageDealt: 0 });
+    allPlayers.forEach(player => {
+      playerMap.set(player.epicId, {
+        player: player.displayName,
+        epicId: player.epicId,
+        eliminations: 0,
+        damageDealt: 0,
+      });
     });
     
-    // Add/merge damage
+    // Merge eliminations
+    elimResults?.forEach(stat => {
+      const existing = playerMap.get(stat.epicId);
+      if (existing) {
+        existing.eliminations = stat.eliminations;
+      }
+    });
+    
+    // Merge damage
     damageResults?.forEach(stat => {
-      const existing = playerMap.get(stat.player);
+      const existing = playerMap.get(stat.epicId);
       if (existing) {
         existing.damageDealt = stat.damageDealt;
-      } else {
-        playerMap.set(stat.player, stat);
       }
     });
 
     const mergedData = Array.from(playerMap.values());
     console.log("Merged data length:", mergedData.length)
     setData(mergedData)
-  }
+  };
 
   const handleMatchesChange = (newMatches: string[]) => {
     setSelectedMatches(newMatches)
     fetchData(newMatches, selectedWeapons, distanceRange, timeRange)
-  }
+  };
 
   const handleWeaponsChange = (newWeapons: string[]) => {
     setSelectedWeapons(newWeapons)
     fetchData(selectedMatches, newWeapons, distanceRange, timeRange)
-  }
+  };
+
+  const debouncedFetchDistance = useDebouncedCallback((newDistance: [number, number]) => {
+    fetchData(selectedMatches, selectedWeapons, newDistance, timeRange)
+  }, 300);
+
+  const debouncedFetchTime = useDebouncedCallback((newTime: [number, number]) => {
+    fetchData(selectedMatches, selectedWeapons, distanceRange, newTime)
+  }, 300);
 
   const handleDistanceChange = (newDistance: [number, number]) => {
     setDistanceRange(newDistance)
-    fetchData(selectedMatches, selectedWeapons, newDistance, timeRange)
-  }
+    debouncedFetchDistance(newDistance)
+  };
 
   const handleTimeChange = (newTime: [number, number]) => {
     setTimeRange(newTime)
-    fetchData(selectedMatches, selectedWeapons, distanceRange, newTime)
-  }
+    debouncedFetchTime(newTime)
+  };
 
   return (
     <div className="space-y-6">
@@ -218,11 +237,11 @@ export default function TournamentStatsClient({ tournamentId, matches, weapons, 
         unit={"m"}
       />
       <SliderRange
-        label="Time Window (seconds)"
+        label="Time Window (minutes)"
         value={timeRange}
         onValueChange={handleTimeChange}
         min={0}
-        max={26.5}
+        max={30}
         step={0.5}
         unit={"min"}
       />

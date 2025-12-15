@@ -3,7 +3,7 @@
 import { columns, PlayerStat } from "./columns"
 import { prisma } from "@/lib/primsa"
 import TournamentStatsClient from "./tournamentStatsClient"
-import { getMatches, getWeaponIds, getFilteredEliminations, Filters } from "@/lib/actions"
+import { getMatches, getWeaponIds, getFilteredEliminations, getAllPlayers, Filters } from "@/lib/actions"
 
 type PageProps = {
 	params: Promise<{ tournamentId: string }>
@@ -14,12 +14,13 @@ export default async function TournamentPage({ params }: PageProps) {
 
 	const matches = await getMatches(tournamentId);
 	const weapons = await getWeaponIds(tournamentId);
+	const allPlayers = await getAllPlayers(matches.map(m => m.id));
 	
 	const initialFilters: Filters = {
 		selectedMatches: matches.map(m => m.id),
 		weaponTypes: weapons.map(w => w.id),
 		distanceRange: [0, 400],
-		timeRange: [0, 25],
+		timeRange: [0, 30],
 	};
 	const initialData = await getFilteredEliminations(initialFilters);
 
@@ -31,8 +32,9 @@ export default async function TournamentPage({ params }: PageProps) {
 
 			<TournamentStatsClient
 				tournamentId={tournamentId}
-				matches={matches} 
+				matches={matches}
 				weapons={weapons}
+				allPlayers={allPlayers}
 				initialData={initialData}
 			/>
 		</div>

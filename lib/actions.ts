@@ -11,6 +11,19 @@ export async function getMatches(tournamentId: string) {
     return matches.map(m => ({ id: m.match_id, label: m.match_id }));
 }
 
+export async function getAllPlayers(matchIds: string[]) {
+  const players = await prisma.match_players.findMany({
+    where: { match_id: { in: matchIds } },
+    select: { epic_id: true, epic_username: true },
+    distinct: ['epic_id'],
+    orderBy: { epic_username: 'asc' },
+  });
+  return players.map(p => ({
+    epicId: p.epic_id,
+    displayName: p.epic_username,
+  }));
+}
+
 export async function getWeaponIds(tournamentId: string) {
   // Fetch weapons for this tournament from the weapons table
   const weapons = await prisma.weapons.findMany({
@@ -30,6 +43,13 @@ export interface Filters {
     weaponTypes: string[],
     distanceRange: [number, number],
     timeRange: [number, number];
+}
+
+export interface PlayerStat {
+    player: string;
+    epicId: string;
+    eliminations: number;
+    damageDealt: number;
 }
 
 export async function getFilteredDamageDealt(filters: Filters) {
@@ -69,19 +89,22 @@ export async function getFilteredDamageDealt(filters: Filters) {
 
   // Transform to PlayerStat format
   const playerStats = results.reduce((acc, event) => {
-    const playerKey = event.match_players_damage_dealt_events_actor_idTomatch_players?.epic_id || "Unknown";
-    const existing = acc.find(p => p.player === playerKey);
+    const actor = event.match_players_damage_dealt_events_actor_idTomatch_players;
+    const epicId = actor?.epic_id || "Unknown";
+    const displayName = actor?.epic_username || "Unknown";
+    const existing = acc.find(p => p.epicId === epicId);
     if (existing) {
       existing.damageDealt += event.damage_amount;
     } else {
       acc.push({
-        player: playerKey,
+        player: displayName,
+        epicId: epicId,
         eliminations: 0,
         damageDealt: event.damage_amount,
       });
     }
     return acc;
-  }, [] as Array<{ player: string; eliminations: number; damageDealt: number }>);
+  }, [] as Array<PlayerStat>);
 
   console.log("[getFilteredDamageDealt] transformed to", playerStats.length, "player stats");
   return playerStats;
@@ -119,8 +142,8 @@ export async function getFilteredEliminations(filters: Filters) {
     where: {
       match_id: selectedMatches.length > 0 ? { in: selectedMatches } : undefined,
       distance: {
-        gte: distanceRange[0],
-        lte: distanceRange[1],
+        gte: distanceRange[0] * 100,
+        lte: distanceRange[1] * 100,
       },
     },
   });
@@ -167,19 +190,22 @@ export async function getFilteredEliminations(filters: Filters) {
 
   // Transform to PlayerStat format
   const playerStats = results.reduce((acc, event) => {
-    const playerKey = event.match_players_elimination_events_actor_idTomatch_players?.epic_id || "Unknown";
-    const existing = acc.find(p => p.player === playerKey);
+    const actor = event.match_players_elimination_events_actor_idTomatch_players;
+    const epicId = actor?.epic_id || "Unknown";
+    const displayName = actor?.epic_username || "Unknown";
+    const existing = acc.find(p => p.epicId === epicId);
     if (existing) {
       existing.eliminations += 1;
     } else {
       acc.push({
-        player: playerKey,
+        player: displayName,
+        epicId: epicId,
         eliminations: 1,
         damageDealt: 0,
       });
     }
     return acc;
-  }, [] as Array<{ player: string; eliminations: number; damageDealt: number }>);
+  }, [] as Array<PlayerStat>);
 
   console.log("[getFilteredEliminations] transformed to", playerStats.length, "player stats");
   return playerStats;
