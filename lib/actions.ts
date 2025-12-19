@@ -2,15 +2,17 @@
 
 import { prisma } from "@/lib/primsa"
 
+// meta function (passed by server component)
 export async function getMatches(tournamentId: string) {
-    const matches = await prisma.matches.findMany({
-        where: { event_window_id: tournamentId },
-        select: { match_id: true },
-        orderBy: { start_time: 'asc' },
-    });
-    return matches.map(m => ({ id: m.match_id, label: m.match_id }));
+  const matches = await prisma.matches.findMany({
+      where: { event_window_id: tournamentId },
+      select: { match_id: true },
+      orderBy: { start_time: 'asc' },
+  });
+  return matches.map(m => ({ id: m.match_id, label: m.match_id }));
 }
 
+// meta function (passed by server component)
 export async function getAllPlayers(matchIds: string[]) {
   const players = await prisma.match_players.findMany({
     where: { match_id: { in: matchIds } },
@@ -24,17 +26,19 @@ export async function getAllPlayers(matchIds: string[]) {
   }));
 }
 
+// meta function (passed by server component)
 export async function getWeaponIds(tournamentId: string) {
-  // Fetch weapons for this tournament from the weapons table
+  // Fetch unique weapon types for this tournament from the weapons table
   const weapons = await prisma.weapons.findMany({
     where: { event_window_id: tournamentId },
-    select: { weapon_id: true, weapon_type: true },
+    select: { weapon_type: true },
+    distinct: ['weapon_type'],
     orderBy: { weapon_type: 'asc' },
   });
 
   return weapons.map(w => ({
-    id: w.weapon_id,
-    label: w.weapon_type || w.weapon_id,
+    id: w.weapon_type,
+    label: w.weapon_type,
   }));
 }
 
@@ -45,11 +49,26 @@ export interface Filters {
     timeRange: [number, number];
 }
 
-export interface PlayerStat {
-    player: string;
-    epicId: string;
-    eliminations: number;
-    damageDealt: number;
+export type PlayerRow = {
+  epicId: string
+  player: string
+} & Record<string, number>
+
+
+// single function which returns all stats based on filters
+export async function getFilteredStats(
+  filters: Filters
+): Promise<PlayerRow[]> {
+  const {
+    selectedMatches,
+    distanceRange,
+    timeRange,
+    weaponTypes
+  } = filters;
+  const damageDealtEvents = await getFilteredDamageDealt(filters);
+  const eliminationEvents = await getFilteredEliminations(filters);
+
+  return [];
 }
 
 export async function getFilteredDamageDealt(filters: Filters) {
@@ -62,7 +81,7 @@ export async function getFilteredDamageDealt(filters: Filters) {
 
   const whereClause = {
     match_id: selectedMatches.length > 0 ? { in: selectedMatches } : undefined,
-    weapon_id: weaponTypes.length > 0 ? { in: weaponTypes } : undefined,
+    weapon_type: weaponTypes.length > 0 ? { in: weaponTypes } : undefined,
     game_time_seconds: {
       gte: timeRange[0] * 60,
       lte: timeRange[1] * 60,
@@ -87,27 +106,7 @@ export async function getFilteredDamageDealt(filters: Filters) {
 
   console.log("[getFilteredDamageDealt] count", results.length);
 
-  // Transform to PlayerStat format
-  const playerStats = results.reduce((acc, event) => {
-    const actor = event.match_players_damage_dealt_events_actor_idTomatch_players;
-    const epicId = actor?.epic_id || "Unknown";
-    const displayName = actor?.epic_username || "Unknown";
-    const existing = acc.find(p => p.epicId === epicId);
-    if (existing) {
-      existing.damageDealt += event.damage_amount;
-    } else {
-      acc.push({
-        player: displayName,
-        epicId: epicId,
-        eliminations: 0,
-        damageDealt: event.damage_amount,
-      });
-    }
-    return acc;
-  }, [] as Array<PlayerStat>);
-
-  console.log("[getFilteredDamageDealt] transformed to", playerStats.length, "player stats");
-  return playerStats;
+  return results;
 }
 
 export async function getFilteredEliminations(filters: Filters) {
@@ -118,52 +117,9 @@ export async function getFilteredEliminations(filters: Filters) {
     weaponTypes
   } = filters;
 
-  // Diagnostic: count rows by match alone
-  const countByMatch = await prisma.elimination_events.count({
-    where: {
-      match_id: selectedMatches.length > 0 ? { in: selectedMatches } : undefined,
-    },
-  });
-  console.log("[getFilteredEliminations] count by match_id:", countByMatch);
-
-  // Diagnostic: get actual weapon types in the data
-  const actualWeaponTypes = await prisma.elimination_events.findMany({
-    where: {
-      match_id: selectedMatches.length > 0 ? { in: selectedMatches } : undefined,
-    },
-    select: { weapon_type: true },
-    distinct: ['weapon_type'],
-    take: 20,
-  });
-  console.log("[getFilteredEliminations] actual weapon_types in DB:", actualWeaponTypes.map(w => w.weapon_type));
-
-  // Diagnostic: count rows by match + distance
-  const countByMatchDistance = await prisma.elimination_events.count({
-    where: {
-      match_id: selectedMatches.length > 0 ? { in: selectedMatches } : undefined,
-      distance: {
-        gte: distanceRange[0] * 100,
-        lte: distanceRange[1] * 100,
-      },
-    },
-  });
-  console.log("[getFilteredEliminations] count by match_id + distance:", countByMatchDistance);
-
-  // Diagnostic: count rows by match + time
-  const countByMatchTime = await prisma.elimination_events.count({
-    where: {
-      match_id: selectedMatches.length > 0 ? { in: selectedMatches } : undefined,
-      game_time_seconds: {
-        gte: timeRange[0] * 60,
-        lte: timeRange[1] * 60,
-      },
-    },
-  });
-  console.log("[getFilteredEliminations] count by match_id + game_time_seconds:", countByMatchTime);
-
   const whereClause = {
     match_id: selectedMatches.length > 0 ? { in: selectedMatches } : undefined,
-    weapon_id: weaponTypes.length > 0 ? { in: weaponTypes } : undefined,
+    weapon_type: weaponTypes.length > 0 ? { in: weaponTypes } : undefined,
     game_time_seconds: {
       gte: timeRange[0] * 60,
       lte: timeRange[1] * 60,
@@ -188,25 +144,5 @@ export async function getFilteredEliminations(filters: Filters) {
 
   console.log("[getFilteredEliminations] count", results.length);
 
-  // Transform to PlayerStat format
-  const playerStats = results.reduce((acc, event) => {
-    const actor = event.match_players_elimination_events_actor_idTomatch_players;
-    const epicId = actor?.epic_id || "Unknown";
-    const displayName = actor?.epic_username || "Unknown";
-    const existing = acc.find(p => p.epicId === epicId);
-    if (existing) {
-      existing.eliminations += 1;
-    } else {
-      acc.push({
-        player: displayName,
-        epicId: epicId,
-        eliminations: 1,
-        damageDealt: 0,
-      });
-    }
-    return acc;
-  }, [] as Array<PlayerStat>);
-
-  console.log("[getFilteredEliminations] transformed to", playerStats.length, "player stats");
-  return playerStats;
+  return results;
 }

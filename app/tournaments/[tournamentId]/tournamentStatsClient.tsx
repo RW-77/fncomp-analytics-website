@@ -1,8 +1,7 @@
 "use client"
 // tournamentStatsClient.tsx
 import { useState } from "react"
-import * as React from "react"
-import { useDebouncedCallback } from 'use-debounce';
+import { useDebouncedCallback } from "use-debounce"
 
 import {
   DropdownMenu,
@@ -16,12 +15,9 @@ import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/common/data-table"
 
-import { columns } from "./columns"
-import { getFilteredEliminations, getFilteredDamageDealt } from "@/lib/actions"
-import { get } from "http"
+import { columns, PlayerRow } from "./columns"
+import { getFilteredStats } from "@/lib/actions"
 
-
-type Checked = boolean | "indeterminate"
 
 type CheckboxItem = {
   id: string
@@ -108,19 +104,17 @@ export function SliderRange({
 }
 
 interface Props {
-  tournamentId: string
   matches: Array<{ id: string, label: string }>
   weapons: Array<{ id: string, label: string }>
-  allPlayers: Array<{ epicId: string, displayName: string }>
-  initialData: any[]
+  initialData: PlayerRow[]
 }
 
-export default function TournamentStatsClient({ tournamentId, matches, weapons, allPlayers, initialData }: Props) {
+export default function TournamentStatsClient({ matches, weapons, initialData }: Props) {
   const [selectedMatches, setSelectedMatches] = useState<string[]>(matches.map(m => m.id));
   const [selectedWeapons, setSelectedWeapons] = useState<string[]>(weapons.map(m => m.id));
   const [distanceRange, setDistanceRange] = useState<[number, number]>([0, 400]);
   const [timeRange, setTimeRange] = useState<[number, number]>([0, 30]);
-  const [data, setData] = useState<any[]>(initialData)
+  const [data, setData] = useState<PlayerRow[]>(initialData)
 
   const fetchData = async (
     newMatches: string[] = selectedMatches,
@@ -128,61 +122,21 @@ export default function TournamentStatsClient({ tournamentId, matches, weapons, 
     newDistance: [number, number] = distanceRange,
     newTime: [number, number] = timeRange
   ) => {
+
     console.log("Fetching data with filters:", {
       selectedMatches: newMatches,
       weaponTypes: newWeapons,
       distanceRange: newDistance,
       timeRange: newTime,
     })
-    
-    const [elimResults, damageResults] = await Promise.all([
-      getFilteredEliminations({
-        selectedMatches: newMatches,
-        weaponTypes: newWeapons,
-        distanceRange: newDistance,
-        timeRange: newTime,
-      }),
-      getFilteredDamageDealt({
-        selectedMatches: newMatches,
-        weaponTypes: newWeapons,
-        distanceRange: newDistance,
-        timeRange: newTime,
-      })
-    ])
-
-    console.log("Eliminations results length:", elimResults?.length)
-    console.log("Damage results length:", damageResults?.length)
-
-    // Initialize all players with 0 stats
-    const playerMap = new Map<string, any>();
-    allPlayers.forEach(player => {
-      playerMap.set(player.epicId, {
-        player: player.displayName,
-        epicId: player.epicId,
-        eliminations: 0,
-        damageDealt: 0,
-      });
+    // simple server action call to fetch filtered stats
+    const rows: PlayerRow[] = await getFilteredStats({
+      selectedMatches: newMatches,
+      weaponTypes: newWeapons,
+      distanceRange: newDistance,
+      timeRange: newTime,
     });
-    
-    // Merge eliminations
-    elimResults?.forEach(stat => {
-      const existing = playerMap.get(stat.epicId);
-      if (existing) {
-        existing.eliminations = stat.eliminations;
-      }
-    });
-    
-    // Merge damage
-    damageResults?.forEach(stat => {
-      const existing = playerMap.get(stat.epicId);
-      if (existing) {
-        existing.damageDealt = stat.damageDealt;
-      }
-    });
-
-    const mergedData = Array.from(playerMap.values());
-    console.log("Merged data length:", mergedData.length)
-    setData(mergedData)
+    setData(rows);
   };
 
   const handleMatchesChange = (newMatches: string[]) => {
