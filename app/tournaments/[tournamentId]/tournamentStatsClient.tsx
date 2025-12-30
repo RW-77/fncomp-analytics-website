@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DataTable } from "@/components/common/data-table"
 
 import { columns, PlayerRow } from "./columns"
@@ -86,18 +87,19 @@ export function SliderRange({
   unit?: string
 }) {
   return (
-    <div className="w-[60%] space-y-3">
-      <div className="text-sm font-medium">{label}</div>
+    <div className="w-full space-y-3">
+      <div className="text-sm font-semibold text-foreground">{label}</div>
       <Slider
         value={value}
         onValueChange={(newValue) => onValueChange(newValue as [number, number])}
         min={min}
         max={max}
         step={step}
+        className="w-full"
       />
-      <div className="flex justify-between text-sm text-muted-foreground">
-        <span>{value[0]} {unit}</span>
-        <span>{value[1]} {unit}</span>
+      <div className="flex justify-between text-sm font-medium">
+        <span className="text-primary">{value[0]} {unit}</span>
+        <span className="text-primary">{value[1]} {unit}</span>
       </div>
     </div>
   )
@@ -109,9 +111,13 @@ interface Props {
   initialData: PlayerRow[]
 }
 
-export default function TournamentStatsClient({ matches, weapons, initialData }: Props) {
-  const [selectedMatches, setSelectedMatches] = useState<string[]>(matches.map(m => m.id));
+export default function TournamentStatsClient({ 
+  matches, 
+  weapons, 
+  initialData 
+}: Props ) {
   const [selectedWeapons, setSelectedWeapons] = useState<string[]>(weapons.map(m => m.id));
+  const [selectedMatches, setSelectedMatches] = useState<string[]>(matches.map(m => m.id));
   const [distanceRange, setDistanceRange] = useState<[number, number]>([0, 400]);
   const [timeRange, setTimeRange] = useState<[number, number]>([0, 30]);
   const [data, setData] = useState<PlayerRow[]>(initialData)
@@ -168,7 +174,7 @@ export default function TournamentStatsClient({ matches, weapons, initialData }:
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       <DropdownMenuCheckboxes 
         title="Select Matches"
         items={matches}

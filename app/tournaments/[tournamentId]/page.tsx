@@ -1,9 +1,8 @@
 // app/tournaments/[tournamentId]/page.tsx
 
-import { columns, PlayerStat } from "./columns"
-import { prisma } from "@/lib/primsa"
 import TournamentStatsClient from "./tournamentStatsClient"
-import { getMatches, getWeaponIds, getFilteredEliminations, getAllPlayers, Filters } from "@/lib/actions"
+import { getMatches, getWeaponIds, getFilteredStats } from "@/lib/actions"
+import { StatFilters } from "@/lib/types"
 
 type PageProps = {
 	params: Promise<{ tournamentId: string }>
@@ -14,27 +13,24 @@ export default async function TournamentPage({ params }: PageProps) {
 
 	const matches = await getMatches(tournamentId);
 	const weapons = await getWeaponIds(tournamentId);
-	const allPlayers = await getAllPlayers(matches.map(m => m.id));
 	
-	const initialFilters: Filters = {
+	const initialFilters: StatFilters = {
 		selectedMatches: matches.map(m => m.id),
 		weaponTypes: weapons.map(w => w.id),
 		distanceRange: [0, 400],
 		timeRange: [0, 30],
 	};
-	const initialData = await getFilteredEliminations(initialFilters);
+	const initialData = await getFilteredStats(initialFilters);
 
 	return (
-		<div className="container mx-auto py-10">
+		<div className="container mx-auto px-4 py-10">
 			<h1 className="text-4xl font-bold mb-8 font-[family-name:var(--font-geist-sans)] text-[#333333]">
 				Tournament: {tournamentId}
 			</h1>
 
 			<TournamentStatsClient
-				tournamentId={tournamentId}
 				matches={matches}
 				weapons={weapons}
-				allPlayers={allPlayers}
 				initialData={initialData}
 			/>
 		</div>

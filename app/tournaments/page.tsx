@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { prisma } from "@/lib/primsa"
+import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default async function TournamentsPage() {
