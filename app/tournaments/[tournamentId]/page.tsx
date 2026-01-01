@@ -15,8 +15,8 @@ export default async function TournamentPage({ params }: PageProps) {
 	const weapons = await getWeaponIds(tournamentId);
 	
 	const initialFilters: StatFilters = {
-		selectedMatches: matches.map((m: { id: string; label: string }) => m.id),
-		weaponTypes: weapons.map((w: { id: string; label: string }) => w.id),
+		selectedMatches: matches.map(m => m.id),
+		weaponTypes: weapons.map(w => w.id),
 		distanceRange: [0, 400],
 		timeRange: [0, 30],
 	};

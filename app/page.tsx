@@ -10,7 +10,7 @@ export default function Home() {
           {/* Hero Section */}
           <div className="text-center mb-20">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent leading-tight">
-              Fortnite Tournament Stats
+              Fortnite Competitive Analytics
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto leading-relaxed">
               Track player performance, eliminations, and damage statistics across competitive Fortnite tournaments
