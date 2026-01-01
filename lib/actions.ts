@@ -8,29 +8,29 @@ import { StatFilters, FilterCapabilities } from "@/lib/types"
 // Meta functions (passed by server component)
 // ============================================================================
 
-export async function getMatches(tournamentId: string) {
+export async function getMatches(tournamentId: string): Promise<Array<{ id: string; label: string }>> {
   const matches = await prisma.matches.findMany({
       where: { event_window_id: tournamentId },
       select: { match_id: true },
       orderBy: { start_time: 'asc' },
   });
-  return matches.map(m => ({ id: m.match_id, label: m.match_id }));
+  return matches.map((m: { match_id: string }) => ({ id: m.match_id, label: m.match_id }));
 }
 
-export async function getAllPlayers(matchIds: string[]) {
+export async function getAllPlayers(matchIds: string[]): Promise<Array<{ epicId: string; displayName: string }>> {
   const players = await prisma.match_players.findMany({
     where: { match_id: { in: matchIds } },
     select: { epic_id: true, epic_username: true },
     distinct: ['epic_id'],
     orderBy: { epic_username: 'asc' },
   });
-  return players.map(p => ({
+  return players.map((p: { epic_id: string; epic_username: string }) => ({
     epicId: p.epic_id,
     displayName: p.epic_username,
   }));
 }
 
-export async function getWeaponIds(tournamentId: string) {
+export async function getWeaponIds(tournamentId: string): Promise<Array<{ id: string; label: string }>> {
   const weapons = await prisma.weapons.findMany({
     where: { event_window_id: tournamentId },
     select: { weapon_type: true },
@@ -38,7 +38,7 @@ export async function getWeaponIds(tournamentId: string) {
     orderBy: { weapon_type: 'asc' },
   });
 
-  return weapons.map(w => ({
+  return weapons.map((w: { weapon_type: string }) => ({
     id: w.weapon_type,
     label: w.weapon_type,
   }));
