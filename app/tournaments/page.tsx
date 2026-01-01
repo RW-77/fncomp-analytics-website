@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import type { event_windowsModel } from "@/generated/prisma/models/event_windows"
 
 export default async function TournamentsPage() {
   const eventWindows = await prisma.event_windows.findMany({
@@ -17,7 +18,7 @@ export default async function TournamentsPage() {
           <p className="text-gray-600">No tournaments found.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {eventWindows.map((eventWindow) => (
+            {eventWindows.map((eventWindow: event_windowsModel) => (
               <Link key={eventWindow.event_window_id} href={`/tournaments/${eventWindow.event_window_id}`}>
                 <Card className="h-full hover:shadow-md transition-shadow">
                   <CardHeader>
