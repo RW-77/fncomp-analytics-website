@@ -109,6 +109,12 @@ const STAT_CAPABILITIES = {
     supportsTimeRange: true,
     supportsDistanceRange: true,
   } as FilterCapabilities,
+  damageReceived: {
+    supportsMatches: true,
+    supportsWeaponTypes: true,
+    supportsTimeRange: true,
+    supportsDistanceRange: true,
+  } as FilterCapabilities,
   // Future stat types can be added here:
   // assists: {
   //   supportsMatches: true,
@@ -175,6 +181,30 @@ async function getDamageDealtByPlayer(filters: StatFilters): Promise<Map<number,
   return map;
 }
 
+/**
+ * Gets total damage received per player, filtered according to capabilities.
+ */
+async function getDamageReceivedByPlayer(filters: StatFilters): Promise<Map<number, number>> {
+  const capabilities = STAT_CAPABILITIES.damageReceived;
+  const whereClause = buildWhereClause(filters, capabilities);
+
+  const results = await prisma.damage_dealt_events.groupBy({
+    by: ["recipient_id"],
+    where: whereClause,
+    _sum: {
+      damage_amount: true,
+    },
+  });
+
+  const map = new Map<number, number>();
+  for (const row of results) {
+    if (row.recipient_id !== null && row._sum && row._sum.damage_amount !== null && row._sum.damage_amount !== undefined) {
+      map.set(row.recipient_id, row._sum.damage_amount);
+    }
+  }
+  return map;
+}
+
 // ============================================================================
 // Main Aggregation Function
 // ============================================================================
@@ -187,15 +217,17 @@ export async function getFilteredStats(
   filters: StatFilters
 ): Promise<PlayerRow[]> {
   // Fetch all stat types in parallel
-  const [eliminationsMap, damageDealtMap] = await Promise.all([
+  const [eliminationsMap, damageDealtMap, damageReceivedMap] = await Promise.all([
     getEliminationsByPlayer(filters),
     getDamageDealtByPlayer(filters),
+    getDamageReceivedByPlayer(filters),
   ]);
 
   // Get all unique actor_ids from all stat queries
   const allActorIds = new Set<number>();
   eliminationsMap.forEach((_, actorId) => allActorIds.add(actorId));
   damageDealtMap.forEach((_, actorId) => allActorIds.add(actorId));
+  damageReceivedMap.forEach((_, recipientId) => allActorIds.add(recipientId));
 
   // Get player information for all actors
   // Note: We don't filter by match_id here because we already have the specific actor_ids
@@ -236,6 +268,7 @@ export async function getFilteredStats(
           epicId: playerInfo.epicId,
           eliminations: 0,
           damageDealt: 0,
+          damageReceived: 0,
         } as unknown as PlayerRow;
         playerRows.set(key, row);
       }
@@ -256,11 +289,33 @@ export async function getFilteredStats(
           epicId: playerInfo.epicId,
           eliminations: 0,
           damageDealt: 0,
+          damageReceived: 0,
         } as unknown as PlayerRow;
         playerRows.set(key, row);
       }
       const row = playerRows.get(key)!;
       row.damageDealt += Math.round(damage); // Sum, don't overwrite
+    }
+  });
+
+  // Process damage received
+  // Note: A player can have multiple recipient_ids (one per match), so we need to SUM stats
+  damageReceivedMap.forEach((damage, recipientId) => {
+    const playerInfo = playerInfoMap.get(recipientId);
+    if (playerInfo) {
+      const key = playerInfo.epicId;
+      if (!playerRows.has(key)) {
+        const row = {
+          player: playerInfo.displayName,
+          epicId: playerInfo.epicId,
+          eliminations: 0,
+          damageDealt: 0,
+          damageReceived: 0,
+        } as unknown as PlayerRow;
+        playerRows.set(key, row);
+      }
+      const row = playerRows.get(key)!;
+      row.damageReceived += Math.round(damage); // Sum, don't overwrite
     }
   });
 
