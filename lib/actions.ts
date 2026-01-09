@@ -67,7 +67,7 @@ function buildWhereClause(
     // This ensures events without classified weapons are not excluded
     where.OR = [
       { weapon_type: { in: filters.weaponTypes } },
-      // { weapon_type: null },
+      { weapon_type: null },
     ];
   }
 
