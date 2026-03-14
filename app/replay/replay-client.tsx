@@ -6,42 +6,120 @@ import useImage from 'use-image'
 import Konva from 'konva'
 
 function ReplayClient({
-   matchId,
-   mapId,
-   matchData,
+  mapId,
+  matchMetadata,
 }: { 
-  matchId: string,
   mapId: string,
-  matchData: any,
+  matchMetadata: any,
  }) {
   const [timestamp, setTimestamp] = useState(0);
   const [paused, setPaused] = useState(false);
+
+  const rafRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number | null>(null);
+
+  // load match metadata
+  const {
+    schema_version: schemaVersion,
+    match_id: matchId,
+    hz,
+    interval_seconds: intervalSeconds,
+    index_to_player: indexToPlayer,
+    player_to_index: playerToIndex,
+  } = matchMetadata;
+
+  // RAF loop for timestamp
+  useEffect(() => {
+    if (paused) return;
+
+    function loop(now: number) {
+      if (lastTimeRef.current === null) {
+        lastTimeRef.current = now
+      }
+
+      const delta = (now - lastTimeRef.current) / 1000
+      lastTimeRef.current = now
+
+      setTimestamp(t => t + delta)
+
+      rafRef.current = requestAnimationFrame(loop)
+    }
+
+    rafRef.current = requestAnimationFrame(loop)
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      lastTimeRef.current = null;
+    }
+  }, [paused])
+
+  const frame = Math.floor(timestamp * hz);
+  const framesPerChunk = hz * intervalSeconds;
+  const chunkIndex = Math.floor(frame / framesPerChunk)
+
+  type ChunkData = {
+    data: any,
+    shape: any,
+  }
+  const chunkCache = useRef<Map<number, ChunkData>>(new Map());
+
+  useEffect(() => {
+    async function ensureChunkLoaded(chunkIndex: number) {
+      if (chunkCache.current.has(chunkIndex)) return;
+
+      const params = new URLSearchParams({
+        matchId,
+        chunkIndex: chunkIndex.toString(),
+      })
+      const response = await fetch(
+        `/api/replay/movement-chunk?${params.toString()}`,
+      )
+      if (!response.ok) {
+        console.error('Failed to fetch movement chunk', await response.text())
+        return
+      }
+      const chunk: ChunkData = await response.json()
+      if (!chunk) return;
+      chunkCache.current.set(chunkIndex, chunk);
+    }
+    ensureChunkLoaded(chunkIndex);
+    ensureChunkLoaded(chunkIndex + 1);
+  }, [chunkIndex])
+
+  // placeholder
+  const playerPositions = {}
+
+  function onPlayPauseClick() {
+    setPaused(p => !p);
+    lastTimeRef.current = null;
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center" style={{ backgroundColor: '#2f3136' }}>
-        <ReplayViewport timestamp={timestamp} />
-        <ReplayControls />
+    <div 
+      className="flex flex-col items-center justify-center" 
+      style={{ backgroundColor: '#2f3136' }}
+    >
+      <ReplayViewport playerPositions={playerPositions} />
+      <ReplayControls onPlayPauseClick={onPlayPauseClick} timestamp={timestamp} paused={paused} />
     </div>
   )
 }
 
 function ReplayViewport({
-  timestamp,
+  playerPositions,
 }: {
-  timestamp: number,
+  playerPositions: any
 }) {
+  // match data should be passed in
 
-  // camera
-  // const [scale, setScale] = useState(0.35);
-  // const [position, setPosition] = useState({ x: 0, y: 0 });
-
-  const [mapImage] = useImage(`/maps/v39/level-0/0-0.png`);
+  const [mapImage] = useImage(`/maps/v39/12/level-0/0-0.png`);
   const stageRef = useRef<Konva.Stage>(null);
 
   const STAGE_WIDTH = 1000;
   const STAGE_HEIGHT = 700; 
 
   const MIN_SCALE = 0.35;
-  const MAX_SCALE = 3.0;
+  const MAX_SCALE = 15.0;
 
   useEffect(() => {
     if (!mapImage || !stageRef.current) return;
@@ -111,7 +189,6 @@ function ReplayViewport({
     };
   };
 
-
   return (
     <div className="flex-1 w-full">
       <Stage 
@@ -137,13 +214,26 @@ function ReplayViewport({
         </Layer>
       </Stage>
     </div>
- )
+  )
 }
 
-function ReplayControls() {
+function ReplayControls({
+  onPlayPauseClick, 
+  timestamp, 
+  paused
+}: {
+  onPlayPauseClick: () => void, 
+  timestamp: number, 
+  paused: boolean
+}) {
   return (
       <div className="bg-green-500">
-          <h1>Replay Controls</h1>
+        <button onClick={onPlayPauseClick}>
+          {paused ? "Play" : "Pause"}
+        </button>
+        <div className="text-white text-lg">
+          Time: {timestamp.toFixed(2)}s
+        </div>
       </div>
   )
 }
