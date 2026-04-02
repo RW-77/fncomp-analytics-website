@@ -1,36 +1,59 @@
 'use client'
+
 import { Stage, Layer, Image as KonvaImage, Circle } from 'react-konva'
 import { useState, useRef, useEffect } from 'react'
-import React from 'react'
+import type { KonvaEventObject } from 'konva/lib/Node'
+import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import useImage from 'use-image'
-import Konva from 'konva'
+
+type MatchMetadata = {
+  schema_version?: number
+  match_id: string
+  hz: number
+  interval_seconds: number
+  index_to_player?: Record<string, string>
+  player_to_index?: Record<string, number>
+}
+
+type ChunkData = {
+  data: number[]
+  shape: number[]
+}
+
+type ReplayClientProps = {
+  mapId: string
+  matchMetadata: MatchMetadata
+  stageWidth?: number
+  stageHeight?: number
+}
+
 
 function ReplayClient({
   mapId,
   matchMetadata,
-}: { 
-  mapId: string,
-  matchMetadata: any,
- }) {
-  const [timestamp, setTimestamp] = useState(0);
-  const [paused, setPaused] = useState(false);
+  stageWidth = 1000,
+  stageHeight = 700,
+}: ReplayClientProps) {
+  const [timestamp, setTimestamp] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const [chunkCache, setChunkCache] = useState<Map<number, ChunkData>>(
+    () => new Map(),
+  )
 
-  const rafRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null)
+  const lastTimeRef = useRef<number | null>(null)
+  const loadingChunksRef = useRef<Set<number>>(new Set())
 
-  // load match metadata
-  const {
-    schema_version: schemaVersion,
-    match_id: matchId,
-    hz,
-    interval_seconds: intervalSeconds,
-    index_to_player: indexToPlayer,
-    player_to_index: playerToIndex,
-  } = matchMetadata;
+  const { match_id: matchId, hz, interval_seconds: intervalSeconds } =
+    matchMetadata
+
+  const frame = Math.floor(timestamp * hz)
+  const framesPerChunk = hz * intervalSeconds
+  const chunkIndex = Math.floor(frame / framesPerChunk)
 
   // RAF loop for timestamp
   useEffect(() => {
-    if (paused) return;
+    if (paused) return
 
     function loop(now: number) {
       if (lastTimeRef.current === null) {
@@ -40,7 +63,7 @@ function ReplayClient({
       const delta = (now - lastTimeRef.current) / 1000
       lastTimeRef.current = now
 
-      setTimestamp(t => t + delta)
+      setTimestamp((value) => value + delta)
 
       rafRef.current = requestAnimationFrame(loop)
     }
@@ -48,75 +71,102 @@ function ReplayClient({
     rafRef.current = requestAnimationFrame(loop)
 
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      lastTimeRef.current = null;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current)
+      }
+      lastTimeRef.current = null
     }
   }, [paused])
 
-  const frame = Math.floor(timestamp * hz);
-  const framesPerChunk = hz * intervalSeconds;
-  const chunkIndex = Math.floor(frame / framesPerChunk)
-
-  type ChunkData = {
-    data: any,
-    shape: any,
-  }
-  const chunkCache = useRef<Map<number, ChunkData>>(new Map());
-
   useEffect(() => {
-    async function ensureChunkLoaded(chunkIndex: number) {
-      if (chunkCache.current.has(chunkIndex)) return;
+    if (!matchId) return
 
-      const params = new URLSearchParams({
-        matchId,
-        chunkIndex: chunkIndex.toString(),
-      })
-      const response = await fetch(
-        `/api/replay/movement-chunk?${params.toString()}`,
-      )
-      if (!response.ok) {
-        console.error('Failed to fetch movement chunk', await response.text())
+    async function ensureChunkLoaded(nextChunkIndex: number) {
+      if (
+        nextChunkIndex < 0 ||
+        chunkCache.has(nextChunkIndex) ||
+        loadingChunksRef.current.has(nextChunkIndex)
+      ) {
         return
       }
-      const chunk: ChunkData = await response.json()
-      if (!chunk) return;
-      chunkCache.current.set(chunkIndex, chunk);
-    }
-    ensureChunkLoaded(chunkIndex);
-    ensureChunkLoaded(chunkIndex + 1);
-  }, [chunkIndex])
 
-  // placeholder
-  const playerPositions = {}
+      loadingChunksRef.current.add(nextChunkIndex)
+
+      try {
+        const params = new URLSearchParams({
+          matchId,
+          chunkIndex: nextChunkIndex.toString(),
+        })
+        const response = await fetch(
+          `/api/replay/movement-chunk?${params.toString()}`,
+        )
+        if (!response.ok) {
+          console.error('Failed to fetch movement chunk', await response.text())
+          return
+        }
+
+        const movementChunk: ChunkData = await response.json()
+        if (!movementChunk) return
+
+        setChunkCache((previous) => {
+          if (previous.has(nextChunkIndex)) {
+            return previous
+          }
+
+          const next = new Map(previous)
+          next.set(nextChunkIndex, movementChunk)
+          return next
+        })
+      } finally {
+        loadingChunksRef.current.delete(nextChunkIndex)
+      }
+    }
+
+    void ensureChunkLoaded(chunkIndex)
+    void ensureChunkLoaded(chunkIndex + 1)
+  }, [chunkCache, chunkIndex, matchId])
+
+  // This will be derived from chunkCache + timestamp once movement sampling is added.
+  const playerPositions = chunkCache.get(chunkIndex)
 
   function onPlayPauseClick() {
-    setPaused(p => !p);
-    lastTimeRef.current = null;
+    setPaused((value) => !value)
+    lastTimeRef.current = null
   }
 
   return (
     <div 
       className="flex flex-col items-center justify-center" 
       style={{ backgroundColor: '#2f3136' }}
+      data-map-id={mapId}
     >
-      <ReplayViewport playerPositions={playerPositions} />
-      <ReplayControls onPlayPauseClick={onPlayPauseClick} timestamp={timestamp} paused={paused} />
+      <ReplayViewport
+        playerPositions={playerPositions}
+        stageWidth={stageWidth}
+        stageHeight={stageHeight}
+      />
+      <ReplayControls 
+        onPlayPauseClick={onPlayPauseClick} 
+        timestamp={timestamp} 
+        paused={paused} 
+      />
     </div>
   )
 }
 
 function ReplayViewport({
   playerPositions,
+  stageWidth,
+  stageHeight,
 }: {
-  playerPositions: any
+  playerPositions: Record<string, unknown>
+  stageWidth: number
+  stageHeight: number
 }) {
-  // match data should be passed in
+  void playerPositions
 
   const [mapImage] = useImage(`/maps/v39/12/level-0/0-0.png`);
-  const stageRef = useRef<Konva.Stage>(null);
-
-  const STAGE_WIDTH = 1000;
-  const STAGE_HEIGHT = 700; 
+  const stageRef = useRef<KonvaStage>(null);
 
   const MIN_SCALE = 0.35;
   const MAX_SCALE = 15.0;
@@ -129,14 +179,14 @@ function ReplayViewport({
 
     stage.scale({ x: scale, y: scale });
     stage.position({
-      x: 1000 / 2,
-      y: 700 / 2,
+      x: stageWidth / 2,
+      y: stageHeight / 2,
     });
 
     stage.batchDraw();
-  }, [mapImage]);
+  }, [mapImage, stageHeight, stageWidth]);
 
-  const handleWheel = (e: any) => {
+  const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
 
     const stage = stageRef.current;
@@ -150,7 +200,7 @@ function ReplayViewport({
       y: (pointer.y - stage.y()) / oldScale,
     }
 
-    let direction = e.evt.deltaY < 0 ? 1 : -1;
+    const direction = e.evt.deltaY < 0 ? 1 : -1;
 
     const scaleBy = 1.1;
     let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
@@ -178,10 +228,10 @@ function ReplayViewport({
     const mapW = mapImage.width * scale;
     const mapH = mapImage.height * scale;
   
-    const minX = STAGE_WIDTH / 2 - mapW / 2;
-    const maxX = STAGE_WIDTH / 2 + mapW / 2;
-    const minY = STAGE_HEIGHT / 2 - mapH / 2;
-    const maxY = STAGE_HEIGHT / 2 + mapH / 2;
+    const minX = stageWidth / 2 - mapW / 2;
+    const maxX = stageWidth / 2 + mapW / 2;
+    const minY = stageHeight / 2 - mapH / 2;
+    const maxY = stageHeight / 2 + mapH / 2;
   
     return {
       x: Math.min(maxX, Math.max(minX, pos.x)),
@@ -193,8 +243,8 @@ function ReplayViewport({
     <div className="flex-1 w-full">
       <Stage 
         ref={stageRef}
-        width={STAGE_WIDTH} 
-        height={STAGE_HEIGHT}
+        width={stageWidth} 
+        height={stageHeight}
         onWheel={handleWheel}
         draggable
         dragBoundFunc={dragBoundFunc}
