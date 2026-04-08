@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import useImage from 'use-image'
+import npyjs from 'npyjs'
 
 type MatchMetadata = {
   schema_version?: number
@@ -16,8 +17,10 @@ type MatchMetadata = {
 }
 
 type ChunkData = {
-  data: number[]
-  shape: number[]
+  data: Float32Array
+  shape: [number, number, number]
+  dtype: string
+  fortranOrder: boolean
 }
 
 type ReplayClientProps = {
@@ -27,6 +30,75 @@ type ReplayClientProps = {
   stageHeight?: number
 }
 
+function getFrameSlice(chunk: ChunkData, frameInChunk: number): Float32Array {
+  const [frameCount, playerCount, featureCount] = chunk.shape
+  if (frameInChunk < 0 || frameInChunk >= frameCount) {
+    throw new Error(`frameInChunk ${frameInChunk} out of bounds`)
+  }
+  const frameStride = playerCount * featureCount
+  const frameOffset = frameInChunk * frameStride
+
+  return chunk.data.subarray(frameOffset, frameOffset + frameStride)
+}
+
+type PlayerState = {
+  playerIndex: number
+  playerId: string | null
+  x: number
+  y: number
+  z: number
+  yaw: number
+  hp: number
+  shield: number
+  alive: boolean
+  dbno: boolean
+}
+
+function getPlayerState(
+  frameSlice: Float32Array,
+  playerIndex: number,
+  playerId: string | null,
+  featureCount = 8,
+): PlayerState | null {
+  const playerOffset = playerIndex * featureCount
+
+  if (playerOffset + featureCount > frameSlice.length) {
+    return null
+  }
+  return {
+    playerIndex,
+    playerId,
+    x: frameSlice[playerOffset + 0],
+    y: frameSlice[playerOffset + 1],
+    z: frameSlice[playerOffset + 2],
+    yaw: frameSlice[playerOffset + 3],
+    hp: frameSlice[playerOffset + 4],
+    shield: frameSlice[playerOffset + 5],
+    alive: frameSlice[playerOffset + 6] > 0.5,
+    dbno: frameSlice[playerOffset + 7] > 0.5,
+  }
+}
+
+function getAllPlayerStates(
+  chunk: ChunkData,
+  frameInChunk: number,
+  indexToPlayer?: Record<string, string>,
+): PlayerState[] {
+  const frameSlice = getFrameSlice(chunk, frameInChunk)
+  const [, playerCount, featureCount] = chunk.shape
+  const players: PlayerState[] = []
+
+  for (let playerIndex = 0; playerIndex < playerCount; playerIndex += 1) {
+    const playerId = indexToPlayer?.[String(playerIndex)] ?? null
+    const state = getPlayerState(frameSlice, playerIndex, playerId, featureCount)
+    if (state) {
+      players.push(state)
+    }
+  }
+  return players
+}
+
+const npy = new npyjs()
 
 function ReplayClient({
   mapId,
@@ -34,6 +106,8 @@ function ReplayClient({
   stageWidth = 1000,
   stageHeight = 700,
 }: ReplayClientProps) {
+
+
   const [timestamp, setTimestamp] = useState(0)
   const [paused, setPaused] = useState(false)
   const [chunkCache, setChunkCache] = useState<Map<number, ChunkData>>(
@@ -43,13 +117,20 @@ function ReplayClient({
   const rafRef = useRef<number | null>(null)
   const lastTimeRef = useRef<number | null>(null)
   const loadingChunksRef = useRef<Set<number>>(new Set())
+  const lastLoggedSampleRef = useRef<string | null>(null)
 
-  const { match_id: matchId, hz, interval_seconds: intervalSeconds } =
+  const {
+    match_id: matchId,
+    hz,
+    interval_seconds: intervalSeconds,
+    index_to_player: indexToPlayer,
+  } =
     matchMetadata
 
   const frame = Math.floor(timestamp * hz)
   const framesPerChunk = hz * intervalSeconds
   const chunkIndex = Math.floor(frame / framesPerChunk)
+  const frameInChunk = frame % framesPerChunk
 
   // RAF loop for timestamp
   useEffect(() => {
@@ -82,17 +163,26 @@ function ReplayClient({
     if (!matchId) return
 
     async function ensureChunkLoaded(nextChunkIndex: number) {
-      if (
-        nextChunkIndex < 0 ||
-        chunkCache.has(nextChunkIndex) ||
-        loadingChunksRef.current.has(nextChunkIndex)
-      ) {
+      if (nextChunkIndex < 0) {
+        return
+      }
+
+      if (chunkCache.has(nextChunkIndex)) {
+        console.log(
+          `[ReplayClient] chunk ${nextChunkIndex} already cached for frame ${frame}`,
+        )
+        return
+      }
+
+      if (loadingChunksRef.current.has(nextChunkIndex)) {
+        console.log(`[ReplayClient] chunk ${nextChunkIndex} already loading`)
         return
       }
 
       loadingChunksRef.current.add(nextChunkIndex)
 
       try {
+        console.log(`[ReplayClient] fetching chunk ${nextChunkIndex}`)
         const params = new URLSearchParams({
           matchId,
           chunkIndex: nextChunkIndex.toString(),
@@ -105,8 +195,30 @@ function ReplayClient({
           return
         }
 
-        const movementChunk: ChunkData = await response.json()
-        if (!movementChunk) return
+        const buffer = await response.arrayBuffer()
+        const parsed = await npy.load(buffer)
+
+        if (!(parsed.data instanceof Float32Array)) {
+          throw new Error(
+            `Expected Float32Array chunk data, got ${parsed.data.constructor.name}`,
+          )
+        }
+        if (parsed.shape.length !== 3) {
+          throw new Error(
+            `Expected 3D chunk shape, got [${parsed.shape.join(', ')}]`,
+          )
+        }
+
+        const movementChunk: ChunkData = {
+          data: parsed.data,
+          shape: parsed.shape as [number, number, number],
+          dtype: parsed.dtype,
+          fortranOrder: parsed.fortranOrder,
+        }
+
+        console.log(
+          `[ReplayClient] decoded chunk ${nextChunkIndex} shape=[${movementChunk.shape.join(', ')}] dtype=${movementChunk.dtype}`,
+        )
 
         setChunkCache((previous) => {
           if (previous.has(nextChunkIndex)) {
@@ -115,6 +227,9 @@ function ReplayClient({
 
           const next = new Map(previous)
           next.set(nextChunkIndex, movementChunk)
+          console.log(
+            `[ReplayClient] cached chunk ${nextChunkIndex}; cache size=${next.size}`,
+          )
           return next
         })
       } finally {
@@ -124,10 +239,35 @@ function ReplayClient({
 
     void ensureChunkLoaded(chunkIndex)
     void ensureChunkLoaded(chunkIndex + 1)
-  }, [chunkCache, chunkIndex, matchId])
+  }, [chunkCache, chunkIndex, frame, matchId])
 
-  // This will be derived from chunkCache + timestamp once movement sampling is added.
-  const playerPositions = chunkCache.get(chunkIndex)
+  const currentChunk = chunkCache.get(chunkIndex)
+  const playerStates = currentChunk
+    ? getAllPlayerStates(currentChunk, frameInChunk, indexToPlayer)
+    : []
+
+  useEffect(() => {
+    if (!currentChunk) {
+      console.log(
+        `[ReplayClient] waiting for chunk ${chunkIndex} at frame ${frame} (frameInChunk=${frameInChunk})`,
+      )
+      return
+    }
+
+    // Log at a low-noise cadence while still showing indexing progress.
+    const shouldLogFrame = frameInChunk === 0 || frame % Math.max(1, hz) === 0
+    const logKey = `${chunkIndex}:${frameInChunk}`
+
+    if (!shouldLogFrame || lastLoggedSampleRef.current === logKey) {
+      return
+    }
+
+    lastLoggedSampleRef.current = logKey
+
+    console.log(
+      `[ReplayClient] sampling frame ${frame} from chunk ${chunkIndex} (frameInChunk=${frameInChunk}, players=${playerStates.length})`,
+    )
+  }, [chunkIndex, currentChunk, frame, frameInChunk, hz, playerStates.length])
 
   function onPlayPauseClick() {
     setPaused((value) => !value)
@@ -140,8 +280,13 @@ function ReplayClient({
       style={{ backgroundColor: '#2f3136' }}
       data-map-id={mapId}
     >
+      {!currentChunk && (
+        <div className="mb-2 text-white">
+          Loading chunk {chunkIndex} for frame {frame}...
+        </div>
+      )}
       <ReplayViewport
-        playerPositions={playerPositions}
+        playerStates={playerStates}
         stageWidth={stageWidth}
         stageHeight={stageHeight}
       />
@@ -155,15 +300,15 @@ function ReplayClient({
 }
 
 function ReplayViewport({
-  playerPositions,
+  playerStates,
   stageWidth,
   stageHeight,
 }: {
-  playerPositions: Record<string, unknown>
+  playerStates: PlayerState[]
   stageWidth: number
   stageHeight: number
 }) {
-  void playerPositions
+  void playerStates
 
   const [mapImage] = useImage(`/maps/v39/12/level-0/0-0.png`);
   const stageRef = useRef<KonvaStage>(null);
