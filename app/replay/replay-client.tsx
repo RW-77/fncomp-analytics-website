@@ -1,6 +1,6 @@
 'use client'
 
-import { Stage, Layer, Image as KonvaImage, Circle } from 'react-konva'
+import { Stage, Layer, Image as KonvaImage, Circle, Text } from 'react-konva'
 import { useState, useRef, useEffect } from 'react'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
@@ -29,6 +29,13 @@ type ReplayClientProps = {
   stageWidth?: number
   stageHeight?: number
 }
+
+const FIXED_WORLD_BOUNDS = {
+  minX: -130000,
+  maxX: 130000,
+  minY: -130000,
+  maxY: 130000,
+} as const
 
 function getFrameSlice(chunk: ChunkData, frameInChunk: number): Float32Array {
   const [frameCount, playerCount, featureCount] = chunk.shape
@@ -98,6 +105,30 @@ function getAllPlayerStates(
   return players
 }
 
+function projectWorldToMap({
+  state,
+  mapWidth,
+  mapHeight,
+}: {
+  state: PlayerState
+  mapWidth: number
+  mapHeight: number
+}) {
+  const padding = 32
+  const usableWidth = mapWidth - padding * 2
+  const usableHeight = mapHeight - padding * 2
+  const worldWidth = Math.max(1, FIXED_WORLD_BOUNDS.maxX - FIXED_WORLD_BOUNDS.minX)
+  const worldHeight = Math.max(1, FIXED_WORLD_BOUNDS.maxY - FIXED_WORLD_BOUNDS.minY)
+
+  const normalizedX = (state.x - FIXED_WORLD_BOUNDS.minX) / worldWidth
+  const normalizedY = (state.y - FIXED_WORLD_BOUNDS.minY) / worldHeight
+
+  return {
+    x: normalizedX * usableWidth + padding - mapWidth / 2,
+    y: normalizedY * usableHeight + padding - mapHeight / 2,
+  }
+}
+
 const npy = new npyjs()
 
 function ReplayClient({
@@ -128,7 +159,7 @@ function ReplayClient({
     matchMetadata
 
   const frame = Math.floor(timestamp * hz)
-  const framesPerChunk = hz * intervalSeconds
+  const framesPerChunk = chunkCache.get(0)?.shape[0] ?? hz * intervalSeconds
   const chunkIndex = Math.floor(frame / framesPerChunk)
   const frameInChunk = frame % framesPerChunk
 
@@ -281,12 +312,13 @@ function ReplayClient({
       data-map-id={mapId}
     >
       {!currentChunk && (
-        <div className="mb-2 text-white">
+        <div className="mb-2 text-white bg-green-500">
           Loading chunk {chunkIndex} for frame {frame}...
         </div>
       )}
       <ReplayViewport
         playerStates={playerStates}
+        framesPerChunk={framesPerChunk}
         stageWidth={stageWidth}
         stageHeight={stageHeight}
       />
@@ -301,20 +333,20 @@ function ReplayClient({
 
 function ReplayViewport({
   playerStates,
+  framesPerChunk,
   stageWidth,
   stageHeight,
 }: {
   playerStates: PlayerState[]
+  framesPerChunk: number
   stageWidth: number
   stageHeight: number
 }) {
-  void playerStates
-
-  const [mapImage] = useImage(`/maps/v39/12/level-0/0-0.png`);
+  const [mapImage] = useImage(`/maps/v39/02/39.02.png`);
   const stageRef = useRef<KonvaStage>(null);
 
-  const MIN_SCALE = 0.35;
-  const MAX_SCALE = 15.0;
+  const MIN_SCALE = 0.05;
+  const MAX_SCALE = 30.0;
 
   useEffect(() => {
     if (!mapImage || !stageRef.current) return;
@@ -400,11 +432,32 @@ function ReplayViewport({
             offsetX={mapImage.width / 2}
             offsetY={mapImage.height / 2}
           />
-          <Circle
-            x={0}
-            y={0}
-            radius={5}
-            fill="red"
+          {playerStates
+            .filter((player) => player.alive)
+            .map((player) => {
+              const projected = projectWorldToMap({
+                state: player,
+                mapWidth: mapImage.width,
+                mapHeight: mapImage.height,
+              })
+
+              return (
+                <Circle
+                  key={player.playerId ?? `player-${player.playerIndex}`}
+                  x={projected.x}
+                  y={projected.y}
+                  radius={player.dbno ? 50 : 40}
+                  fill={player.dbno ? '#facc15' : '#4ade80'}
+                  opacity={0.9}
+                />
+              )
+            })}
+          <Text
+            x={-mapImage.width / 2 + 24}
+            y={-mapImage.height / 2 + 24}
+            text={`players on frame: ${playerStates.length}\nframes/chunk: ${framesPerChunk}`}
+            fill="white"
+            fontSize={18}
           />
         </Layer>
       </Stage>
