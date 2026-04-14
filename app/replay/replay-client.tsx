@@ -86,13 +86,33 @@ function getPlayerState(
   }
 }
 
-function getAllPlayerStates(
-  chunk: ChunkData,
-  frameInChunk: number,
+function getFrame({
+  absoluteFrame,
+  chunkCache,
+  framesPerChunk,
+}: {
+  absoluteFrame: number
+  chunkCache: Map<number, ChunkData>
+  framesPerChunk: number
+}): Float32Array | null {
+  if (absoluteFrame < 0) {
+    return null
+  }
+  const chunkIndex = Math.floor(absoluteFrame / framesPerChunk)
+  const frameInChunk = absoluteFrame % framesPerChunk
+  const chunk = chunkCache.get(chunkIndex)
+  if (!chunk) {
+    return null
+  }
+  return getFrameSlice(chunk, frameInChunk)
+}
+
+function getPlayerStatesFromFrame(
+  frameSlice: Float32Array,
   indexToPlayer?: Record<string, string>,
 ): PlayerState[] {
-  const frameSlice = getFrameSlice(chunk, frameInChunk)
-  const [, playerCount, featureCount] = chunk.shape
+  const featureCount = 8
+  const playerCount = Math.floor(frameSlice.length / featureCount)
   const players: PlayerState[] = []
 
   for (let playerIndex = 0; playerIndex < playerCount; playerIndex += 1) {
@@ -103,6 +123,35 @@ function getAllPlayerStates(
     }
   }
   return players
+}
+
+function lerp(a: number, b: number, alpha: number) {
+  return a + (b - a) * alpha
+}
+
+function interpolatePlayerStates(
+  currentStates: PlayerState[],
+  nextStates: PlayerState[],
+  alpha: number,
+): PlayerState[] {
+  if (!nextStates.length) {
+    return currentStates
+  }
+
+  return currentStates.map((currentState, playerIndex) => {
+    const nextState = nextStates[playerIndex]
+
+    if (!nextState || nextState.playerIndex !== currentState.playerIndex) {
+      return currentState
+    }
+
+    return {
+      ...currentState,
+      x: lerp(currentState.x, nextState.x, alpha),
+      y: lerp(currentState.y, nextState.y, alpha),
+      z: lerp(currentState.z, nextState.z, alpha),
+    }
+  })
 }
 
 function projectWorldToMap({
@@ -138,7 +187,6 @@ function ReplayClient({
   stageHeight = 700,
 }: ReplayClientProps) {
 
-
   const [timestamp, setTimestamp] = useState(0)
   const [paused, setPaused] = useState(false)
   const [chunkCache, setChunkCache] = useState<Map<number, ChunkData>>(
@@ -158,7 +206,9 @@ function ReplayClient({
   } =
     matchMetadata
 
-  const frame = Math.floor(timestamp * hz)
+  const exactFrame = timestamp * hz
+  const frame = Math.floor(exactFrame)
+  const alpha = exactFrame - frame
   const framesPerChunk = chunkCache.get(0)?.shape[0] ?? hz * intervalSeconds
   const chunkIndex = Math.floor(frame / framesPerChunk)
   const frameInChunk = frame % framesPerChunk
@@ -272,10 +322,28 @@ function ReplayClient({
     void ensureChunkLoaded(chunkIndex + 1)
   }, [chunkCache, chunkIndex, frame, matchId])
 
+  const currentFrame = getFrame({
+    absoluteFrame: frame,
+    chunkCache,
+    framesPerChunk,
+  })
+  const nextFrame = getFrame({
+    absoluteFrame: frame + 1,
+    chunkCache,
+    framesPerChunk,
+  })
   const currentChunk = chunkCache.get(chunkIndex)
-  const playerStates = currentChunk
-    ? getAllPlayerStates(currentChunk, frameInChunk, indexToPlayer)
+  const currentPlayerStates = currentFrame
+    ? getPlayerStatesFromFrame(currentFrame, indexToPlayer)
     : []
+  const nextPlayerStates = nextFrame
+    ? getPlayerStatesFromFrame(nextFrame, indexToPlayer)
+    : []
+  const playerStates = interpolatePlayerStates(
+    currentPlayerStates,
+    nextPlayerStates,
+    alpha,
+  )
 
   useEffect(() => {
     if (!currentChunk) {
@@ -296,9 +364,9 @@ function ReplayClient({
     lastLoggedSampleRef.current = logKey
 
     console.log(
-      `[ReplayClient] sampling frame ${frame} from chunk ${chunkIndex} (frameInChunk=${frameInChunk}, players=${playerStates.length})`,
+      `[ReplayClient] sampling frame ${frame} from chunk ${chunkIndex} (frameInChunk=${frameInChunk}, alpha=${alpha.toFixed(2)}, players=${playerStates.length})`,
     )
-  }, [chunkIndex, currentChunk, frame, frameInChunk, hz, playerStates.length])
+  }, [alpha, chunkIndex, currentChunk, frame, frameInChunk, hz, playerStates.length])
 
   function onPlayPauseClick() {
     setPaused((value) => !value)
