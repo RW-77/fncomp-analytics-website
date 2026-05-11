@@ -2,6 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
+import { getEventImageUrl, getTournamentEventImageKey } from "@/lib/event-images"
 import { prisma } from "@/lib/prisma"
 import {
   compareTournamentRegions,
@@ -26,18 +27,6 @@ function formatDateRange(startTime: Date | null, endTime: Date | null) {
   }
 
   return dateFormatter.format(startTime ?? endTime ?? new Date())
-}
-
-function getTournamentCardImage(groupId: string) {
-  if (groupId.includes("FNCSMajor") && groupId.includes("Final")) {
-    return "/images/fncs.jpg"
-  }
-
-  if (groupId.includes("PerformanceEvaluation")) {
-    return "/images/eval.jpg"
-  }
-
-  return null
 }
 
 export default async function TournamentsPage() {
@@ -108,6 +97,19 @@ export default async function TournamentsPage() {
       right.createdAt.getTime() - left.createdAt.getTime()
   )
 
+  const eventImageKeys = Array.from(
+    new Set(
+      groupedEventWindows
+        .map((eventWindowGroup) => getTournamentEventImageKey(eventWindowGroup.groupId))
+        .filter((key): key is string => key !== null)
+    )
+  )
+
+  const signedImageEntries = await Promise.all(
+    eventImageKeys.map(async (key) => [key, await getEventImageUrl(key)] as const)
+  )
+  const signedImageUrls = new Map(signedImageEntries)
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <section className="mb-6 rounded-2xl border border-white/8 bg-[#0b1321]/80 px-5 py-5 shadow-[0_20px_60px_rgba(2,6,23,0.24)]">
@@ -132,7 +134,8 @@ export default async function TournamentsPage() {
       ) : (
         <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {groupedEventWindows.map((eventWindowGroup) => {
-            const imageSrc = getTournamentCardImage(eventWindowGroup.groupId)
+            const imageKey = getTournamentEventImageKey(eventWindowGroup.groupId)
+            const imageSrc = imageKey ? signedImageUrls.get(imageKey) ?? null : null
             const formattedLabel = formatTournamentLabel(eventWindowGroup.groupId)
 
             return (
@@ -146,10 +149,11 @@ export default async function TournamentsPage() {
                     {imageSrc ? (
                       <Image
                         fill
-                        src={imageSrc}
                         alt={formattedLabel}
+                        src={imageSrc}
                         sizes="(min-width: 1280px) 30vw, (min-width: 640px) 46vw, 100vw"
                         className="object-cover opacity-70 transition duration-300 group-hover:scale-[1.03] group-hover:opacity-80"
+                        unoptimized
                       />
                     ) : (
                       <div className="h-full w-full bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.2),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.45),rgba(2,6,23,0.98))]" />

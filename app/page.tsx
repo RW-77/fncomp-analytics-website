@@ -1,8 +1,16 @@
 import Link from "next/link"
 import { ArrowRight, BarChart3, Database, Filter } from "lucide-react"
 
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { getFilteredStats } from "@/lib/actions"
+import { prisma } from "@/lib/prisma"
+import {
+  compareTournamentRegions,
+  formatTournamentLabel,
+  getEventWindowGroupId,
+  getEventWindowRegion,
+} from "@/lib/tournaments"
 
 const featureCards = [
   {
@@ -22,20 +30,110 @@ const featureCards = [
   },
 ]
 
-const previewStats = [
-  { label: "Tracked players", value: "1,248" },
-  { label: "Processed fights", value: "18,640" },
-  { label: "Regions in view", value: "7" },
-]
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+})
 
-const previewRows = [
-  { player: "Mero", eliminations: "42", damage: "8,416" },
-  { player: "Malibuca", eliminations: "38", damage: "7,982" },
-  { player: "Pinq", eliminations: "34", damage: "7,104" },
-  { player: "Chico", eliminations: "31", damage: "6,882" },
-]
+function formatDateRange(startTime: Date | null, endTime: Date | null) {
+  if (!startTime && !endTime) {
+    return "Date unavailable"
+  }
 
-export default function Home() {
+  if (startTime && endTime) {
+    return `${dateFormatter.format(startTime)} - ${dateFormatter.format(endTime)}`
+  }
+
+  return dateFormatter.format(startTime ?? endTime ?? new Date())
+}
+
+async function getHomepagePreview() {
+  const latestMatch = await prisma.matches.findFirst({
+    select: { event_window_id: true },
+    orderBy: { start_time: "desc" },
+  })
+
+  if (!latestMatch) {
+    return null
+  }
+
+  const latestGroupId = getEventWindowGroupId(latestMatch.event_window_id)
+  const latestGroupWindows = (
+    await prisma.event_windows.findMany({
+      where: {
+        event_window_id: {
+          startsWith: `${latestGroupId}_`,
+        },
+      },
+      orderBy: { event_window_id: "asc" },
+    })
+  ).filter((eventWindow) => getEventWindowGroupId(eventWindow.event_window_id) === latestGroupId)
+
+  const eventWindowIds = latestGroupWindows.map((eventWindow) => eventWindow.event_window_id)
+  const matches = await prisma.matches.findMany({
+    where: {
+      event_window_id: {
+        in: eventWindowIds,
+      },
+    },
+    select: { match_id: true },
+    orderBy: { start_time: "desc" },
+  })
+
+  const statsRows = await getFilteredStats({
+    selectedMatches: matches.map((match) => match.match_id),
+    weaponTypes: [],
+    distanceRange: [0, 400],
+    timeRange: [0, 30],
+  })
+
+  const regions = latestGroupWindows
+    .map((eventWindow) => getEventWindowRegion(eventWindow.event_window_id))
+    .filter((region): region is string => region !== null)
+    .sort(compareTournamentRegions)
+
+  const startTimes = latestGroupWindows
+    .map((eventWindow) => eventWindow.start_time)
+    .filter((date): date is Date => date !== null)
+  const endTimes = latestGroupWindows
+    .map((eventWindow) => eventWindow.end_time)
+    .filter((date): date is Date => date !== null)
+
+  const topRows = [...statsRows]
+    .sort(
+      (left, right) =>
+        (right.eliminations ?? 0) - (left.eliminations ?? 0) ||
+        (right.damageDealt ?? 0) - (left.damageDealt ?? 0)
+    )
+    .slice(0, 4)
+    .map((row) => ({
+      player: row.player,
+      eliminations: row.eliminations.toLocaleString(),
+      damage: row.damageDealt.toLocaleString(),
+    }))
+
+  return {
+    title: formatTournamentLabel(latestGroupId),
+    subtitle: `Latest tournament overview across ${regions.length} region${regions.length === 1 ? "" : "s"}`,
+    badge: `${regions.join(", ")} · ${matches.length} matches`,
+    stats: [
+      { label: "Tracked players", value: statsRows.length.toLocaleString() },
+      { label: "Match count", value: matches.length.toLocaleString() },
+      { label: "Date range", value: formatDateRange(startTimes.at(-1) ?? null, endTimes[0] ?? null) },
+    ],
+    chips: [
+      `Latest group`,
+      `Regions: ${regions.join(", ")}`,
+      `Window: ${formatDateRange(startTimes.at(-1) ?? null, endTimes[0] ?? null)}`,
+    ],
+    rows: topRows,
+  }
+}
+
+export default async function Home() {
+  const preview = await getHomepagePreview()
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <section className="grid gap-8 pb-10 pt-4 lg:grid-cols-[1.02fr_0.98fr] lg:items-start lg:gap-10 lg:pt-10">
@@ -98,20 +196,24 @@ export default function Home() {
                   <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500">
                     Dashboard Preview
                   </div>
-                  <div className="mt-1 text-lg font-semibold text-white">FNCS Major 3</div>
+                  <div className="mt-1 text-lg font-semibold text-white">
+                    {preview?.title ?? "No tournaments available"}
+                  </div>
                   <div className="mt-1 text-sm text-slate-400">
-                    Filterable player output across tournament event windows
+                    {preview?.subtitle ?? "Tournament data will appear here when matches are available."}
                   </div>
                 </div>
-                <div className="rounded-full border border-sky-400/15 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
-                  EU · 12 matches
-                </div>
+                {preview && (
+                  <div className="rounded-full border border-sky-400/15 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-200">
+                    {preview.badge}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="space-y-5 p-5">
               <div className="grid gap-3 sm:grid-cols-3">
-                {previewStats.map((stat) => (
+                {(preview?.stats ?? []).map((stat) => (
                   <div
                     key={stat.label}
                     className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3"
@@ -119,7 +221,7 @@ export default function Home() {
                     <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                       {stat.label}
                     </div>
-                    <div className="mt-2 text-2xl font-semibold tracking-tight text-white">
+                    <div className="mt-2 text-xl font-semibold tracking-tight text-white">
                       {stat.value}
                     </div>
                   </div>
@@ -128,15 +230,14 @@ export default function Home() {
 
               <div className="rounded-xl border border-white/8 bg-[#0d1524]/90">
                 <div className="flex flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3">
-                  <span className="rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300">
-                    Matches: All
-                  </span>
-                  <span className="rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300">
-                    Weapons: Shotgun
-                  </span>
-                  <span className="rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300">
-                    Distance: 0-150m
-                  </span>
+                  {(preview?.chips ?? []).map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300"
+                    >
+                      {chip}
+                    </span>
+                  ))}
                 </div>
 
                 <div className="grid grid-cols-[minmax(0,1.2fr)_repeat(2,minmax(96px,0.8fr))] gap-3 border-b border-white/8 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -146,7 +247,7 @@ export default function Home() {
                 </div>
 
                 <div className="divide-y divide-white/6">
-                  {previewRows.map((row) => (
+                  {(preview?.rows ?? []).map((row) => (
                     <div
                       key={row.player}
                       className="grid grid-cols-[minmax(0,1.2fr)_repeat(2,minmax(96px,0.8fr))] gap-3 px-4 py-3 text-sm text-slate-200"
