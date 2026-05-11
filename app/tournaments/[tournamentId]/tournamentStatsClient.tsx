@@ -14,9 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DataTable } from "@/components/common/data-table"
 import { getFilteredStats } from "@/lib/actions"
+import { cn } from "@/lib/utils"
 
 import { columns, PlayerRow } from "./columns"
 
@@ -30,6 +30,12 @@ interface DropDownMenuCheckboxesProps {
   items: CheckboxItem[]
   selectedIds: string[]
   onSelectionChange: (selectedIds: string[]) => void
+}
+
+function formatFilterCount(selectedCount: number, totalCount: number) {
+  return selectedCount === totalCount
+    ? `All ${totalCount} selected`
+    : `${selectedCount} of ${totalCount} selected`
 }
 
 export function DropdownMenuCheckboxes({
@@ -46,11 +52,6 @@ export function DropdownMenuCheckboxes({
     }
   }
 
-  const selectionLabel =
-    selectedIds.length === items.length
-      ? `All ${items.length} selected`
-      : `${selectedIds.length} of ${items.length} selected`
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -63,7 +64,7 @@ export function DropdownMenuCheckboxes({
               {title}
             </span>
             <span className="mt-1 block truncate text-sm font-medium text-slate-100">
-              {selectionLabel}
+              {formatFilterCount(selectedIds.length, items.length)}
             </span>
           </span>
           <ChevronDown className="size-4 shrink-0 text-slate-500" />
@@ -106,23 +107,21 @@ export function SliderRange({
   step?: number
   unit?: string
 }) {
+  const formatValue = (amount: number) => (unit ? `${amount} ${unit}` : `${amount}`)
+
   return (
-    <div className="w-full max-w-[420px] space-y-3 rounded-xl border border-white/8 bg-[#09111d] px-4 py-4">
+    <div className="w-full space-y-3 rounded-xl border border-white/8 bg-[#09111d] px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
             {label}
           </div>
           <div className="mt-1 text-sm text-slate-300">
-            {min}
-            {unit} to {max}
-            {unit}
+            {formatValue(min)} to {formatValue(max)}
           </div>
         </div>
         <div className="rounded-md border border-sky-400/15 bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-200 tabular-nums">
-          {value[0]}
-          {unit} - {value[1]}
-          {unit}
+          {formatValue(value[0])} - {formatValue(value[1])}
         </div>
       </div>
 
@@ -136,14 +135,8 @@ export function SliderRange({
       />
 
       <div className="flex justify-between text-xs text-slate-500 tabular-nums">
-        <span>
-          {min}
-          {unit}
-        </span>
-        <span>
-          {max}
-          {unit}
-        </span>
+        <span>{formatValue(min)}</span>
+        <span>{formatValue(max)}</span>
       </div>
     </div>
   )
@@ -156,10 +149,11 @@ interface Props {
 }
 
 export default function TournamentStatsClient({ matches, weapons, initialData }: Props) {
-  const [selectedWeapons, setSelectedWeapons] = useState<string[]>(weapons.map((weapon) => weapon.id))
+  const [selectedWeapons] = useState<string[]>(weapons.map((weapon) => weapon.id))
   const [selectedMatches, setSelectedMatches] = useState<string[]>(matches.map((match) => match.id))
   const [distanceRange, setDistanceRange] = useState<[number, number]>([0, 400])
   const [timeRange, setTimeRange] = useState<[number, number]>([0, 30])
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [data, setData] = useState<PlayerRow[]>(initialData)
 
   const fetchData = async (
@@ -182,11 +176,6 @@ export default function TournamentStatsClient({ matches, weapons, initialData }:
     fetchData(newMatches, selectedWeapons, distanceRange, timeRange)
   }
 
-  const handleWeaponsChange = (newWeapons: string[]) => {
-    setSelectedWeapons(newWeapons)
-    fetchData(selectedMatches, newWeapons, distanceRange, timeRange)
-  }
-
   const debouncedFetchDistance = useDebouncedCallback((newDistance: [number, number]) => {
     fetchData(selectedMatches, selectedWeapons, newDistance, timeRange)
   }, 300)
@@ -206,53 +195,74 @@ export default function TournamentStatsClient({ matches, weapons, initialData }:
   }
 
   return (
-    <div className="w-full space-y-5">
-      <Card className="gap-0 border-white/8 bg-[#0b1321]/80 py-0 shadow-[0_20px_60px_rgba(2,6,23,0.24)]">
-        <CardHeader className="gap-2 border-b border-white/8 px-5 py-4">
-          <CardTitle className="text-base font-semibold text-white">Filters</CardTitle>
-          <CardDescription className="text-sm text-slate-400">
-            Narrow the table without changing the underlying sorting or stat calculations.
-          </CardDescription>
-        </CardHeader>
+    <div className="mx-auto w-full max-w-6xl space-y-4">
+      <div
+        className={cn(
+          "overflow-hidden rounded-2xl border border-white/8 bg-[#0b1321]/80 shadow-[0_20px_60px_rgba(2,6,23,0.24)]",
+          filtersOpen ? "w-full max-w-[520px]" : "w-fit max-w-full"
+        )}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen((open) => !open)}
+          className={cn(
+            "flex h-auto items-center justify-between rounded-none px-4 py-3.5 text-left hover:bg-white/[0.02]",
+            filtersOpen ? "w-full" : "w-auto min-w-[180px]"
+          )}
+        >
+          <span className="text-sm font-medium text-slate-200">Filters</span>
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-slate-500 transition-transform duration-200",
+              filtersOpen && "rotate-180"
+            )}
+          />
+        </Button>
 
-        <CardContent className="space-y-5 px-5 py-5">
-          <div className="grid gap-3 lg:grid-cols-2">
-            <DropdownMenuCheckboxes
-              title="Matches"
-              items={matches}
-              selectedIds={selectedMatches}
-              onSelectionChange={handleMatchesChange}
-            />
-            <DropdownMenuCheckboxes
-              title="Weapons"
-              items={weapons}
-              selectedIds={selectedWeapons}
-              onSelectionChange={handleWeaponsChange}
-            />
-          </div>
+        {filtersOpen && (
+          <div className="border-t border-white/8 px-4 py-4">
+            <div className="grid gap-3">
+              <DropdownMenuCheckboxes
+                title="Matches"
+                items={matches}
+                selectedIds={selectedMatches}
+                onSelectionChange={handleMatchesChange}
+              />
 
-          <div className="grid gap-4 xl:grid-cols-2 xl:justify-between">
-            <SliderRange
-              label="Distance"
-              value={distanceRange}
-              onValueChange={handleDistanceChange}
-              min={0}
-              max={400}
-              step={5}
-              unit="m"
-            />
-            <SliderRange
-              label="Time Window"
-              value={timeRange}
-              onValueChange={handleTimeChange}
-              min={0}
-              max={30}
-              step={0.5}
-              unit=" min"
-            />
+              {/* Temporarily hidden while weapon-group UX is being reworked. */}
+              {/* <DropdownMenuCheckboxes
+                title="Weapons"
+                items={weapons}
+                selectedIds={selectedWeapons}
+                onSelectionChange={handleWeaponsChange}
+              /> */}
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3">
+              <SliderRange
+                label="Distance"
+                value={distanceRange}
+                onValueChange={handleDistanceChange}
+                min={0}
+                max={400}
+                step={5}
+                unit="m"
+              />
+              <SliderRange
+                label="Time Window"
+                value={timeRange}
+                onValueChange={handleTimeChange}
+                min={0}
+                max={30}
+                step={0.5}
+                unit="min"
+              />
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
       <DataTable columns={columns} data={data} />
     </div>

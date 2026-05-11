@@ -2,9 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, ChevronRight } from "lucide-react"
+import { BarChart3 } from "lucide-react"
 
-import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const navItems = [
@@ -56,17 +55,6 @@ export function Navigation() {
               )
             })}
           </div>
-
-          <Link
-            href="/tournaments"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "hidden border-white/10 bg-white/[0.04] text-slate-100 shadow-none transition-colors hover:bg-sky-400/10 hover:text-sky-200 sm:inline-flex"
-            )}
-          >
-            Open Dashboard
-            <ChevronRight className="size-4" />
-          </Link>
         </div>
       </div>
     </nav>

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, BarChart3, Database, Filter, ShieldCheck } from "lucide-react"
+import { ArrowRight, BarChart3, Database, Filter } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -46,29 +46,24 @@ export default function Home() {
 
           <div className="space-y-4">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-[3.6rem] lg:leading-[1.02]">
-              Review tournament performance with a dashboard built for analysts, not a splash page.
+              Intelligent Fortnite analytics with context
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-              Explore event windows, isolate combat scenarios, and compare player output across competitive Fortnite tournaments without touching raw replay files.
+              Explore tournaments, filter stats, and compare player output across competitive Fortnite.
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex justify-center">
             <Button
               asChild
               size="lg"
-              className="h-11 rounded-lg bg-sky-400 px-5 text-sm font-semibold text-slate-950 shadow-[0_0_0_1px_rgba(125,211,252,0.4),0_18px_40px_rgba(14,165,233,0.18)] transition-colors hover:bg-sky-300"
+              className="h-14 rounded-xl px-8 text-lg font-semibold text-slate-950 shadow-[0_0_0_1px_rgba(125,211,252,0.42),0_28px_56px_rgba(14,165,233,0.22)] transition-colors hover:bg-sky-300 sm:min-w-[300px]"
             >
               <Link href="/tournaments">
                 Browse tournaments
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
-
-            <div className="flex items-center gap-3 rounded-lg border border-white/8 bg-white/[0.03] px-4 py-2.5 text-sm text-slate-300">
-              <ShieldCheck className="size-4 text-sky-300" />
-              Existing filters, routes, and stat behavior kept intact.
-            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">

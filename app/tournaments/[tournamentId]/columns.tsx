@@ -51,12 +51,8 @@ export const columns: ColumnDef<PlayerRow>[] = [
       />
     ),
     cell: ({ row }) => (
-      <div
-        className="min-w-0 max-w-[280px]"
-        title={`${row.original.player} (${row.original.epicId})`}
-      >
+      <div className="min-w-0 max-w-[280px]" title={row.original.player}>
         <div className="truncate font-medium text-white">{row.original.player}</div>
-        <div className="truncate text-xs text-slate-500">{row.original.epicId}</div>
       </div>
     ),
   },
@@ -66,7 +62,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       <SortableHeader
         label="Eliminations"
         align="right"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />
     ),
     cell: ({ getValue }) => (
@@ -81,7 +77,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       <SortableHeader
         label="Damage Dealt"
         align="right"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />
     ),
     cell: ({ getValue }) => (
@@ -96,7 +92,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       <SortableHeader
         label="Damage Received"
         align="right"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />
     ),
     cell: ({ getValue }) => (

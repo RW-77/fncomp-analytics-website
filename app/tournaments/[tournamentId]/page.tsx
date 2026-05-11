@@ -104,7 +104,7 @@ export default async function TournamentPage({ params }: PageProps) {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px]">
             <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
               <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Matches</div>
               <div className="mt-1 text-xl font-semibold text-white tabular-nums">
@@ -112,14 +112,6 @@ export default async function TournamentPage({ params }: PageProps) {
               </div>
             </div>
             <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                Processed
-              </div>
-              <div className="mt-1 text-xl font-semibold text-white tabular-nums">
-                {currentEventWindow.processed_matches}
-              </div>
-            </div>
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 sm:col-span-3 lg:col-span-1">
               <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                 Date range
               </div>

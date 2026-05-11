@@ -67,10 +67,7 @@ model elimination_events {
 
 model event_windows {
   event_window_id       String    @id @db.VarChar(100)
-  processing            Boolean
-  processed             Boolean
-  failed                Boolean
-  discovered_at         DateTime  @db.Timestamp(6)
+  created_at            DateTime  @db.Timestamp(6)
   last_processing_start DateTime? @db.Timestamp(6)
   last_processed        DateTime? @db.Timestamp(6)
   last_failed           DateTime? @db.Timestamp(6)
@@ -78,6 +75,7 @@ model event_windows {
   end_time              DateTime? @db.Timestamp(6)
   total_matches         Int
   processed_matches     Int
+  status                String    @db.VarChar(32)
   matches               matches[]
   weapons               weapons[]
 }
@@ -98,22 +96,23 @@ model match_players {
 }
 
 model matches {
-  match_id            String                @id @db.VarChar(50)
-  event_window_id     String                @db.VarChar(50)
-  processing          Boolean
-  processed           Boolean
-  failed              Boolean
-  event_id            String?               @db.VarChar(100)
-  start_time          DateTime              @db.Timestamp(6)
-  end_time            DateTime?             @db.Timestamp(6)
-  gamemode            String?               @db.VarChar(100)
-  duration            DateTime?             @db.Timestamp(6)
-  player_count        Int?
-  created_at          DateTime              @db.Timestamp(6)
-  damage_dealt_events damage_dealt_events[]
-  elimination_events  elimination_events[]
-  match_players       match_players[]
-  event_windows       event_windows         @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
+  match_id              String                   @id @db.VarChar(50)
+  event_window_id       String                   @db.VarChar(100)
+  event_id              String?                  @db.VarChar(100)
+  start_time            DateTime                 @db.Timestamp(6)
+  end_time              DateTime?                @db.Timestamp(6)
+  gamemode              String?                  @db.VarChar(100)
+  duration              Unsupported("interval")?
+  player_count          Int?
+  created_at            DateTime                 @db.Timestamp(6)
+  status                String                   @db.VarChar(32)
+  last_processing_start DateTime?                @db.Timestamp(6)
+  last_processed        DateTime?                @db.Timestamp(6)
+  last_failed           DateTime?                @db.Timestamp(6)
+  damage_dealt_events   damage_dealt_events[]
+  elimination_events    elimination_events[]
+  match_players         match_players[]
+  event_windows         event_windows            @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model weapons {
@@ -127,4 +126,14 @@ model weapons {
   @@index([event_window_id], map: "idx_weapon_event_window")
   @@index([weapon_type], map: "idx_weapon_type")
   @@index([weapon_id], map: "idx_weapon_weapon_id")
+}
+
+model alembic_version {
+  version_num String @id(map: "alembic_version_pkc") @db.VarChar(32)
+}
+
+model events {
+  event_id   String    @id @db.VarChar(100)
+  start_time DateTime? @db.Timestamp(6)
+  end_time   DateTime? @db.Timestamp(6)
 }
