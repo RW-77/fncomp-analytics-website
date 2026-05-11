@@ -3,7 +3,19 @@ const EVENT_IMAGE_KEYS = {
   fncs: "assets/event-images/fncs.jpg",
 } as const
 
+const EVENT_IMAGE_FALLBACK_PATHS = {
+  eval: "/images/eval.jpg",
+  fncs: "/images/fncs.jpg",
+} as const
+
 export type EventImageId = keyof typeof EVENT_IMAGE_KEYS
+
+const hasEventImageStorage = Boolean(
+  process.env.BUCKET_NAME &&
+    process.env.BUCKET_REGION &&
+    process.env.AWS_ACCESS_KEY_ID &&
+    process.env.AWS_SECRET_ACCESS_KEY
+)
 
 export function getTournamentEventImageId(groupId: string): EventImageId | null {
   if (groupId.includes("FNCSMajor") && groupId.includes("Final")) {
@@ -20,7 +32,13 @@ export function getTournamentEventImageId(groupId: string): EventImageId | null 
 export function getTournamentEventImagePath(groupId: string) {
   const imageId = getTournamentEventImageId(groupId)
 
-  return imageId ? `/api/event-images/${imageId}` : null
+  if (!imageId) {
+    return null
+  }
+
+  return hasEventImageStorage
+    ? `/api/event-images/${imageId}`
+    : EVENT_IMAGE_FALLBACK_PATHS[imageId]
 }
 
 export function getEventImageKey(imageId: string) {
