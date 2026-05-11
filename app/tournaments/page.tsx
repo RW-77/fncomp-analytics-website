@@ -2,7 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
-import { getEventImageUrl, getTournamentEventImageKey } from "@/lib/event-images"
+import { getTournamentEventImagePath } from "@/lib/event-images"
 import { prisma } from "@/lib/prisma"
 import {
   compareTournamentRegions,
@@ -97,19 +97,6 @@ export default async function TournamentsPage() {
       right.createdAt.getTime() - left.createdAt.getTime()
   )
 
-  const eventImageKeys = Array.from(
-    new Set(
-      groupedEventWindows
-        .map((eventWindowGroup) => getTournamentEventImageKey(eventWindowGroup.groupId))
-        .filter((key): key is NonNullable<ReturnType<typeof getTournamentEventImageKey>> => key !== null)
-    )
-  )
-
-  const signedImageEntries = await Promise.all(
-    eventImageKeys.map(async (key) => [key, await getEventImageUrl(key)] as const)
-  )
-  const signedImageUrls = new Map(signedImageEntries)
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <section className="mb-6 rounded-2xl border border-white/8 bg-[#0b1321]/80 px-5 py-5 shadow-[0_20px_60px_rgba(2,6,23,0.24)]">
@@ -134,8 +121,7 @@ export default async function TournamentsPage() {
       ) : (
         <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {groupedEventWindows.map((eventWindowGroup) => {
-            const imageKey = getTournamentEventImageKey(eventWindowGroup.groupId)
-            const imageSrc = imageKey ? signedImageUrls.get(imageKey) ?? null : null
+            const imageSrc = getTournamentEventImagePath(eventWindowGroup.groupId)
             const formattedLabel = formatTournamentLabel(eventWindowGroup.groupId)
 
             return (

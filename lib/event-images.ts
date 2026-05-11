@@ -1,56 +1,32 @@
-import "dotenv/config"
-
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3"
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-
-const {
-  BUCKET_NAME,
-  BUCKET_REGION,
-  AWS_ACCESS_KEY_ID,
-  AWS_SECRET_ACCESS_KEY,
-} = process.env
-
 const EVENT_IMAGE_KEYS = {
   eval: "assets/event-images/eval.jpg",
   fncs: "assets/event-images/fncs.jpg",
 } as const
 
-const EVENT_IMAGE_URL_TTL_SECONDS = 60 * 60
+export type EventImageId = keyof typeof EVENT_IMAGE_KEYS
 
-const s3Client =
-  BUCKET_NAME && BUCKET_REGION && AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY
-    ? new S3Client({
-        region: BUCKET_REGION,
-        credentials: {
-          accessKeyId: AWS_ACCESS_KEY_ID,
-          secretAccessKey: AWS_SECRET_ACCESS_KEY,
-        },
-      })
-    : null
-
-export function getTournamentEventImageKey(groupId: string) {
+export function getTournamentEventImageId(groupId: string): EventImageId | null {
   if (groupId.includes("FNCSMajor") && groupId.includes("Final")) {
-    return EVENT_IMAGE_KEYS.fncs
+    return "fncs"
   }
 
   if (groupId.includes("PerformanceEvaluation")) {
-    return EVENT_IMAGE_KEYS.eval
+    return "eval"
   }
 
   return null
 }
 
-export async function getEventImageUrl(key: string) {
-  if (!s3Client || !BUCKET_NAME) {
-    return null
-  }
+export function getTournamentEventImagePath(groupId: string) {
+  const imageId = getTournamentEventImageId(groupId)
 
-  return getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    }),
-    { expiresIn: EVENT_IMAGE_URL_TTL_SECONDS }
-  )
+  return imageId ? `/api/event-images/${imageId}` : null
+}
+
+export function getEventImageKey(imageId: string) {
+  return isEventImageId(imageId) ? EVENT_IMAGE_KEYS[imageId] : null
+}
+
+function isEventImageId(imageId: string): imageId is EventImageId {
+  return imageId in EVENT_IMAGE_KEYS
 }
