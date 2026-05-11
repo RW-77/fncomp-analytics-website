@@ -101,7 +101,7 @@ export default async function TournamentsPage() {
     new Set(
       groupedEventWindows
         .map((eventWindowGroup) => getTournamentEventImageKey(eventWindowGroup.groupId))
-        .filter((key): key is string => key !== null)
+        .filter((key): key is NonNullable<ReturnType<typeof getTournamentEventImageKey>> => key !== null)
     )
   )
 
