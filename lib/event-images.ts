@@ -4,11 +4,12 @@ const EVENT_IMAGE_KEYS = {
 } as const
 
 const EVENT_IMAGE_FALLBACK_PATHS = {
+  div: "/images/div.jpg",
   eval: "/images/eval.jpg",
   fncs: "/images/fncs.jpg",
 } as const
 
-export type EventImageId = keyof typeof EVENT_IMAGE_KEYS
+export type EventImageId = keyof typeof EVENT_IMAGE_FALLBACK_PATHS
 
 const hasEventImageStorage = Boolean(
   process.env.BUCKET_NAME &&
@@ -18,6 +19,10 @@ const hasEventImageStorage = Boolean(
 )
 
 export function getTournamentEventImageId(groupId: string): EventImageId | null {
+  if (groupId.includes("FNCSDivisionalCup") && groupId.includes("Final")) {
+    return "div"
+  }
+
   if (groupId.includes("FNCSMajor") && groupId.includes("Final")) {
     return "fncs"
   }
@@ -36,15 +41,17 @@ export function getTournamentEventImagePath(groupId: string) {
     return null
   }
 
-  return hasEventImageStorage
+  const s3ImageKey = getEventImageKey(imageId)
+
+  return hasEventImageStorage && s3ImageKey
     ? `/api/event-images/${imageId}`
     : EVENT_IMAGE_FALLBACK_PATHS[imageId]
 }
 
 export function getEventImageKey(imageId: string) {
-  return isEventImageId(imageId) ? EVENT_IMAGE_KEYS[imageId] : null
+  return isS3BackedEventImageId(imageId) ? EVENT_IMAGE_KEYS[imageId] : null
 }
 
-function isEventImageId(imageId: string): imageId is EventImageId {
+function isS3BackedEventImageId(imageId: string): imageId is keyof typeof EVENT_IMAGE_KEYS {
   return imageId in EVENT_IMAGE_KEYS
 }
