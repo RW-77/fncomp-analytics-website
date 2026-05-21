@@ -1,12 +1,14 @@
 const EVENT_IMAGE_KEYS = {
   eval: "assets/event-images/eval.jpg",
   fncs: "assets/event-images/fncs.jpg",
+  globals: "assets/event-images/globals.jpg",
 } as const
 
 const EVENT_IMAGE_FALLBACK_PATHS = {
   div: "/images/div.jpg",
   eval: "/images/eval.jpg",
   fncs: "/images/fncs.jpg",
+  globals: "/images/globals.jpg",
 } as const
 
 export type EventImageId = keyof typeof EVENT_IMAGE_FALLBACK_PATHS
@@ -19,6 +21,10 @@ const hasEventImageStorage = Boolean(
 )
 
 export function getTournamentEventImageId(groupId: string): EventImageId | null {
+  if (groupId.includes("Dinosauron_Day")) {
+    return "globals"
+  }
+
   if (groupId.includes("FNCSDivisionalCup") && groupId.includes("Final")) {
     return "div"
   }
