@@ -8,11 +8,22 @@ import { StatFilters, FilterCapabilities } from "@/lib/types"
 // Meta functions (passed by server component)
 // ============================================================================
 
-export async function getMatches(tournamentId: string): Promise<Array<{ id: string; label: string }>> {
+/**
+ * Returns the matches across the supplied event windows. Used to drive the
+ * Matches filter on the tournament detail page, where a single view may span
+ * multiple event windows (cumulative across days).
+ */
+export async function getMatches(
+  eventWindowIds: string[]
+): Promise<Array<{ id: string; label: string }>> {
+  if (eventWindowIds.length === 0) {
+    return [];
+  }
+
   const matches = await prisma.matches.findMany({
-      where: { event_window_id: tournamentId },
-      select: { match_id: true },
-      orderBy: { start_time: 'asc' },
+    where: { event_window_id: { in: eventWindowIds } },
+    select: { match_id: true },
+    orderBy: { start_time: 'asc' },
   });
   return matches.map((m: { match_id: string }) => ({ id: m.match_id, label: m.match_id }));
 }
@@ -30,9 +41,19 @@ export async function getAllPlayers(matchIds: string[]): Promise<Array<{ epicId:
   }));
 }
 
-export async function getWeaponIds(tournamentId: string): Promise<Array<{ id: string; label: string }>> {
+/**
+ * Returns the distinct weapon types across the supplied event windows. Used to
+ * drive the Weapons filter on the tournament detail page.
+ */
+export async function getWeaponIds(
+  eventWindowIds: string[]
+): Promise<Array<{ id: string; label: string }>> {
+  if (eventWindowIds.length === 0) {
+    return [];
+  }
+
   const weapons = await prisma.weapons.findMany({
-    where: { event_window_id: tournamentId },
+    where: { event_window_id: { in: eventWindowIds } },
     select: { weapon_type: true },
     distinct: ['weapon_type'],
     orderBy: { weapon_type: 'asc' },
@@ -55,8 +76,8 @@ export async function getWeaponIds(tournamentId: string): Promise<Array<{ id: st
 function buildWhereClause(
   filters: StatFilters,
   capabilities: FilterCapabilities
-): Record<string, any> {
-  const where: Record<string, any> = {};
+): Record<string, unknown> {
+  const where: Record<string, unknown> = {};
 
   if (capabilities.supportsMatches && filters.selectedMatches.length > 0) {
     where.match_id = { in: filters.selectedMatches };

@@ -7,9 +7,7 @@ import { getFilteredStats } from "@/lib/actions"
 import { prisma } from "@/lib/prisma"
 import {
   compareTournamentRegions,
-  formatTournamentLabel,
-  getEventWindowGroupId,
-  getEventWindowRegion,
+  getTournamentDisplayTitle,
 } from "@/lib/tournaments"
 
 const featureCards = [
@@ -48,35 +46,47 @@ function formatDateRange(startTime: Date | null, endTime: Date | null) {
   return dateFormatter.format(startTime ?? endTime ?? new Date())
 }
 
+/**
+ * Builds the homepage's "latest tournament" preview card. Picks the tournament
+ * with the most recent event_window start time and aggregates regions, matches,
+ * and top players across all of its event_windows.
+ */
 async function getHomepagePreview() {
-  const latestMatch = await prisma.matches.findFirst({
-    select: { event_window_id: true },
+  const latestEventWindow = await prisma.event_windows.findFirst({
+    where: { tournament_id: { not: null }, start_time: { not: null } },
     orderBy: { start_time: "desc" },
+    select: { tournament_id: true },
   })
 
-  if (!latestMatch) {
+  if (!latestEventWindow?.tournament_id) {
     return null
   }
 
-  const latestGroupId = getEventWindowGroupId(latestMatch.event_window_id)
-  const latestGroupWindows = (
-    await prisma.event_windows.findMany({
-      where: {
-        event_window_id: {
-          startsWith: `${latestGroupId}_`,
-        },
-      },
-      orderBy: { event_window_id: "asc" },
-    })
-  ).filter((eventWindow) => getEventWindowGroupId(eventWindow.event_window_id) === latestGroupId)
+  const tournamentId = latestEventWindow.tournament_id
 
-  const eventWindowIds = latestGroupWindows.map((eventWindow) => eventWindow.event_window_id)
+  const [tournament, eventWindows] = await Promise.all([
+    prisma.tournaments.findUnique({ where: { tournament_id: tournamentId } }),
+    prisma.event_windows.findMany({
+      where: { tournament_id: tournamentId },
+      include: { events: true },
+    }),
+  ])
+
+  if (!tournament || eventWindows.length === 0) {
+    return null
+  }
+
+  const regions = Array.from(
+    new Set(
+      eventWindows
+        .map((eventWindow) => eventWindow.events?.region_code)
+        .filter((region): region is string => Boolean(region))
+    )
+  ).sort(compareTournamentRegions)
+
+  const eventWindowIds = eventWindows.map((eventWindow) => eventWindow.event_window_id)
   const matches = await prisma.matches.findMany({
-    where: {
-      event_window_id: {
-        in: eventWindowIds,
-      },
-    },
+    where: { event_window_id: { in: eventWindowIds } },
     select: { match_id: true },
     orderBy: { start_time: "desc" },
   })
@@ -88,17 +98,18 @@ async function getHomepagePreview() {
     timeRange: [0, 30],
   })
 
-  const regions = latestGroupWindows
-    .map((eventWindow) => getEventWindowRegion(eventWindow.event_window_id))
-    .filter((region): region is string => region !== null)
-    .sort(compareTournamentRegions)
-
-  const startTimes = latestGroupWindows
+  const startTimes = eventWindows
     .map((eventWindow) => eventWindow.start_time)
-    .filter((date): date is Date => date !== null)
-  const endTimes = latestGroupWindows
+    .filter((value): value is Date => value !== null)
+  const endTimes = eventWindows
     .map((eventWindow) => eventWindow.end_time)
-    .filter((date): date is Date => date !== null)
+    .filter((value): value is Date => value !== null)
+  const startTime = startTimes.length
+    ? new Date(Math.min(...startTimes.map((d) => d.getTime())))
+    : null
+  const endTime = endTimes.length
+    ? new Date(Math.max(...endTimes.map((d) => d.getTime())))
+    : null
 
   const topRows = [...statsRows]
     .sort(
@@ -113,19 +124,22 @@ async function getHomepagePreview() {
       damage: row.damageDealt.toLocaleString(),
     }))
 
+  const dateRange = formatDateRange(startTime, endTime)
+  const title = getTournamentDisplayTitle(tournament)
+
   return {
-    title: formatTournamentLabel(latestGroupId),
+    title,
     subtitle: `Latest tournament overview across ${regions.length} region${regions.length === 1 ? "" : "s"}`,
     badge: `${regions.join(", ")} · ${matches.length} matches`,
     stats: [
       { label: "Tracked players", value: statsRows.length.toLocaleString() },
       { label: "Match count", value: matches.length.toLocaleString() },
-      { label: "Date range", value: formatDateRange(startTimes.at(-1) ?? null, endTimes[0] ?? null) },
+      { label: "Date range", value: dateRange },
     ],
     chips: [
-      `Latest group`,
+      "Latest tournament",
       `Regions: ${regions.join(", ")}`,
-      `Window: ${formatDateRange(startTimes.at(-1) ?? null, endTimes[0] ?? null)}`,
+      `Window: ${dateRange}`,
     ],
     rows: topRows,
   }

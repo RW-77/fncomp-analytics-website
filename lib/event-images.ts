@@ -1,17 +1,22 @@
-const EVENT_IMAGE_KEYS = {
-  eval: "assets/event-images/eval.jpg",
-  fncs: "assets/event-images/fncs.jpg",
-  globals: "assets/event-images/globals.jpg",
-} as const
+/**
+ * Helpers for rendering the event image associated with a tournament.
+ *
+ * `image_key` lives on the `events` table and stores the full S3 object
+ * basename (including extension), e.g. `epicgames_S40_FNCSMajor1_Final_EU.jpg`.
+ * The website resolves that to `assets/event-images/<image_key>` inside the
+ * configured S3 bucket (BUCKET_NAME, expected to be `fortnite-tournament-objects`
+ * in production).
+ *
+ * When S3 is not configured (typical local dev), the image falls back to
+ * `/images/<image_key>` so the asset can also be checked into `/public/images`.
+ */
 
-const EVENT_IMAGE_FALLBACK_PATHS = {
-  div: "/images/div.jpg",
-  eval: "/images/eval.jpg",
-  fncs: "/images/fncs.jpg",
-  globals: "/images/globals.jpg",
-} as const
+const EVENT_IMAGE_S3_PREFIX = "assets/event-images/"
 
-export type EventImageId = keyof typeof EVENT_IMAGE_FALLBACK_PATHS
+// Allow letters, digits, underscores, and hyphens, with optional dot-separated
+// suffixes (e.g. a file extension). Rejects empty tokens so `..`, `.foo`, and
+// `foo.` cannot match — important because the value is used in an S3 object key.
+const IMAGE_KEY_PATTERN = /^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/
 
 const hasEventImageStorage = Boolean(
   process.env.BUCKET_NAME &&
@@ -20,44 +25,37 @@ const hasEventImageStorage = Boolean(
     process.env.AWS_SECRET_ACCESS_KEY
 )
 
-export function getTournamentEventImageId(groupId: string): EventImageId | null {
-  if (groupId.includes("Dinosauron_Day")) {
-    return "globals"
-  }
-
-  if (groupId.includes("FNCSDivisionalCup") && groupId.includes("Final")) {
-    return "div"
-  }
-
-  if (groupId.includes("FNCSMajor") && groupId.includes("Final")) {
-    return "fncs"
-  }
-
-  if (groupId.includes("PerformanceEvaluation")) {
-    return "eval"
-  }
-
-  return null
+/**
+ * Validates that an image_key is safe to use as a URL segment and an S3 key
+ * suffix. Disallows path separators and parent-directory traversal.
+ */
+export function isValidImageKey(imageKey: string): boolean {
+  return IMAGE_KEY_PATTERN.test(imageKey)
 }
 
-export function getTournamentEventImagePath(groupId: string) {
-  const imageId = getTournamentEventImageId(groupId)
+/**
+ * Builds the S3 object key for a tournament image. The image_key column
+ * already includes the file extension, so it is used verbatim under the
+ * `assets/event-images/` prefix. Returns null if the input fails validation.
+ */
+export function buildEventImageS3Key(imageKey: string): string | null {
+  if (!isValidImageKey(imageKey)) {
+    return null
+  }
+  return `${EVENT_IMAGE_S3_PREFIX}${imageKey}`
+}
 
-  if (!imageId) {
+/**
+ * Resolves the path the browser should load for a tournament image. Returns
+ * null when no image_key is set or it fails validation, so the UI can render
+ * a placeholder.
+ */
+export function getTournamentImagePath(imageKey: string | null | undefined): string | null {
+  if (!imageKey || !isValidImageKey(imageKey)) {
     return null
   }
 
-  const s3ImageKey = getEventImageKey(imageId)
-
-  return hasEventImageStorage && s3ImageKey
-    ? `/api/event-images/${imageId}`
-    : EVENT_IMAGE_FALLBACK_PATHS[imageId]
-}
-
-export function getEventImageKey(imageId: string) {
-  return isS3BackedEventImageId(imageId) ? EVENT_IMAGE_KEYS[imageId] : null
-}
-
-function isS3BackedEventImageId(imageId: string): imageId is keyof typeof EVENT_IMAGE_KEYS {
-  return imageId in EVENT_IMAGE_KEYS
+  return hasEventImageStorage
+    ? `/api/event-images/${encodeURIComponent(imageKey)}`
+    : `/images/${imageKey}`
 }

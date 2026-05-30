@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3"
 import { NextResponse } from "next/server"
 
-import { getEventImageKey } from "@/lib/event-images"
+import { buildEventImageS3Key } from "@/lib/event-images"
 
 const {
   BUCKET_NAME,
@@ -26,12 +26,14 @@ const s3Client =
       })
     : null
 
+// The dynamic segment is still named `imageId` to match the route folder name,
+// but it now carries the raw `events.image_key` value from the database.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ imageId: string }> }
 ) {
   const { imageId } = await params
-  const key = getEventImageKey(imageId)
+  const key = buildEventImageS3Key(imageId)
 
   if (!key) {
     return NextResponse.json({ error: "Image not found" }, { status: 404 })
