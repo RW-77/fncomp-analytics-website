@@ -136,7 +136,7 @@ async function getTournamentCards(): Promise<TournamentCard[]> {
       endTime: endTimes.length
         ? new Date(Math.max(...endTimes.map((d) => d.getTime())))
         : null,
-      totalMatches: tournamentEventWindows.reduce(
+      totalMatches: eventWindowsForDefaultView.reduce(
         (sum, eventWindow) => sum + eventWindow.total_matches,
         0
       ),
