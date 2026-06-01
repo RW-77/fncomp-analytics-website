@@ -1,5 +1,7 @@
-const Skeleton = ({ className }: { className?: string }) => (
-  <div className={`animate-pulse rounded bg-white/[0.07] ${className ?? ""}`} />
+import React from "react"
+
+const Skeleton = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+  <div className={`animate-pulse rounded bg-white/[0.07] ${className ?? ""}`} style={style} />
 )
 
 export default function Loading() {
