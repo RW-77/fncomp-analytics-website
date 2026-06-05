@@ -1,19 +1,62 @@
 'use client'
 
-import { Stage, Layer, Image as KonvaImage, Circle, Text } from 'react-konva'
-import { useState, useRef, useEffect } from 'react'
+import {
+  Stage,
+  Layer,
+  Image as KonvaImage,
+  Circle,
+  Group,
+  Rect,
+  Line,
+  Text,
+} from 'react-konva'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import useImage from 'use-image'
 import npyjs from 'npyjs'
+import {
+  getReplayMapDefinition,
+  projectReplayWorldToMapImage,
+  REPLAY_MAP_IMAGE_BY_ID,
+} from '@/lib/replay/map-projection'
+
+// ---------------------------------------------------------------------------
+// YAW / DIRECTION TUNING
+// ---------------------------------------------------------------------------
+// The data stores a `yaw` per player (feature index 3). We turn that into a
+// screen rotation (degrees, clockwise, 0 = pointing right/east) for the arrow.
+//
+// We could NOT verify the exact convention from the data alone, so the mapping
+// lives here in three knobs. If the arrows point the wrong way, this is the
+// ONLY place you need to touch:
+//   - YAW_IS_DEGREES: set false if yaw is stored in radians.
+//   - YAW_SIGN:       set to -1 if arrows rotate the wrong direction.
+//   - YAW_OFFSET_DEG: add/subtract 90/180 until "forward" looks correct.
+const YAW_IS_DEGREES = true
+const YAW_SIGN = 1
+const YAW_OFFSET_DEG = 0
+
+function yawToScreenDegrees(yawDeg: number): number {
+  return YAW_SIGN * yawDeg + YAW_OFFSET_DEG
+}
 
 type MatchMetadata = {
   schema_version?: number
   match_id: string
   hz: number
   interval_seconds: number
+  // New fields written by the ETL into metadata.json:
+  total_frames?: number
+  total_chunks?: number
+  duration_seconds?: number
+  player_count?: number
+  // Mapping helpers. The new metadata only guarantees player_to_index, so we
+  // invert it ourselves when index_to_player is absent.
   index_to_player?: Record<string, string>
   player_to_index?: Record<string, number>
+  // Epic account id -> display username, written by the ETL timeline parser.
+  id_to_username?: Record<string, string>
 }
 
 type ChunkData = {
@@ -30,12 +73,7 @@ type ReplayClientProps = {
   stageHeight?: number
 }
 
-const FIXED_WORLD_BOUNDS = {
-  minX: -130000,
-  maxX: 130000,
-  minY: -130000,
-  maxY: 130000,
-} as const
+const FEATURE_COUNT = 8
 
 function getFrameSlice(chunk: ChunkData, frameInChunk: number): Float32Array {
   const [frameCount, playerCount, featureCount] = chunk.shape
@@ -51,34 +89,51 @@ function getFrameSlice(chunk: ChunkData, frameInChunk: number): Float32Array {
 type PlayerState = {
   playerIndex: number
   playerId: string | null
+  username: string | null
   x: number
   y: number
   z: number
-  yaw: number
+  // Stored already converted to DEGREES (see getPlayerState).
+  yawDeg: number
   hp: number
   shield: number
   alive: boolean
   dbno: boolean
+  // False before a player's first telemetry, when the ETL fills position with
+  // the (0,0,0) sentinel (e.g. while still on the battle bus). Such players
+  // should not be drawn (otherwise they stack at the map origin).
+  known: boolean
 }
 
 function getPlayerState(
   frameSlice: Float32Array,
   playerIndex: number,
   playerId: string | null,
-  featureCount = 8,
+  username: string | null,
+  featureCount = FEATURE_COUNT,
 ): PlayerState | null {
   const playerOffset = playerIndex * featureCount
 
   if (playerOffset + featureCount > frameSlice.length) {
     return null
   }
+  const rawYaw = frameSlice[playerOffset + 3]
+  const x = frameSlice[playerOffset + 0]
+  const y = frameSlice[playerOffset + 1]
+  const z = frameSlice[playerOffset + 2]
   return {
     playerIndex,
     playerId,
-    x: frameSlice[playerOffset + 0],
-    y: frameSlice[playerOffset + 1],
-    z: frameSlice[playerOffset + 2],
-    yaw: frameSlice[playerOffset + 3],
+    username,
+    x,
+    y,
+    z,
+    // Exactly (0,0,0) is the ETL's "position not yet known" sentinel; a real
+    // in-world position landing on the exact origin is effectively impossible.
+    known: !(x === 0 && y === 0 && z === 0),
+    // Normalize to degrees right here so every downstream consumer
+    // (interpolation, rendering) works in one unit.
+    yawDeg: YAW_IS_DEGREES ? rawYaw : (rawYaw * 180) / Math.PI,
     hp: frameSlice[playerOffset + 4],
     shield: frameSlice[playerOffset + 5],
     alive: frameSlice[playerOffset + 6] > 0.5,
@@ -110,14 +165,15 @@ function getFrame({
 function getPlayerStatesFromFrame(
   frameSlice: Float32Array,
   indexToPlayer?: Record<string, string>,
+  idToUsername?: Record<string, string>,
 ): PlayerState[] {
-  const featureCount = 8
-  const playerCount = Math.floor(frameSlice.length / featureCount)
+  const playerCount = Math.floor(frameSlice.length / FEATURE_COUNT)
   const players: PlayerState[] = []
 
   for (let playerIndex = 0; playerIndex < playerCount; playerIndex += 1) {
     const playerId = indexToPlayer?.[String(playerIndex)] ?? null
-    const state = getPlayerState(frameSlice, playerIndex, playerId, featureCount)
+    const username = playerId ? idToUsername?.[playerId] ?? null : null
+    const state = getPlayerState(frameSlice, playerIndex, playerId, username)
     if (state) {
       players.push(state)
     }
@@ -127,6 +183,14 @@ function getPlayerStatesFromFrame(
 
 function lerp(a: number, b: number, alpha: number) {
   return a + (b - a) * alpha
+}
+
+// Shortest-path angular interpolation in DEGREES. Plain lerp would spin the
+// long way around (e.g. 350 -> 10 would sweep backwards through 180); this
+// always takes the <=180 path so arrows turn naturally.
+function lerpAngleDeg(a: number, b: number, alpha: number) {
+  const diff = ((b - a + 540) % 360) - 180
+  return a + diff * alpha
 }
 
 function interpolatePlayerStates(
@@ -145,37 +209,76 @@ function interpolatePlayerStates(
       return currentState
     }
 
+    // If either endpoint is the not-yet-known sentinel, hold the current state
+    // instead of tweening — otherwise a player would streak across the map from
+    // (0, 0) on the frame they first appear. They stay hidden (the filter checks
+    // `known`) until the current frame itself has a real position.
+    if (!currentState.known || !nextState.known) {
+      return currentState
+    }
+
     return {
       ...currentState,
       x: lerp(currentState.x, nextState.x, alpha),
       y: lerp(currentState.y, nextState.y, alpha),
       z: lerp(currentState.z, nextState.z, alpha),
+      // yaw is interpolated too now that we draw direction arrows, otherwise
+      // arrows would snap between the (low) sample-rate frames.
+      yawDeg: lerpAngleDeg(currentState.yawDeg, nextState.yawDeg, alpha),
     }
   })
 }
 
 function projectWorldToMap({
   state,
+  mapId,
   mapWidth,
   mapHeight,
 }: {
   state: PlayerState
+  mapId: string
   mapWidth: number
   mapHeight: number
 }) {
-  const padding = 32
-  const usableWidth = mapWidth - padding * 2
-  const usableHeight = mapHeight - padding * 2
-  const worldWidth = Math.max(1, FIXED_WORLD_BOUNDS.maxX - FIXED_WORLD_BOUNDS.minX)
-  const worldHeight = Math.max(1, FIXED_WORLD_BOUNDS.maxY - FIXED_WORLD_BOUNDS.minY)
+  return projectReplayWorldToMapImage({
+    x: state.x,
+    y: state.y,
+    imageWidth: mapWidth,
+    imageHeight: mapHeight,
+    mapId,
+  })
+}
 
-  const normalizedX = (state.x - FIXED_WORLD_BOUNDS.minX) / worldWidth
-  const normalizedY = (state.y - FIXED_WORLD_BOUNDS.minY) / worldHeight
-
-  return {
-    x: normalizedX * usableWidth + padding - mapWidth / 2,
-    y: normalizedY * usableHeight + padding - mapHeight / 2,
+// Measures the actual rendered pixel width of a string using a cached 2D canvas
+// context, so the nametag box hugs the text instead of relying on a per-char
+// estimate (which over-pads names with spaces/narrow letters). The font string
+// must match the Konva Text node (default family is Arial). Falls back to a
+// rough estimate during SSR where `document` doesn't exist.
+let measureCtx: CanvasRenderingContext2D | null = null
+function measureTextWidth(
+  text: string,
+  fontSize: number,
+  fontStyle = 'bold',
+  fontFamily = 'Arial',
+) {
+  if (typeof document === 'undefined') {
+    return text.length * fontSize * 0.6
   }
+  if (!measureCtx) {
+    measureCtx = document.createElement('canvas').getContext('2d')
+  }
+  if (!measureCtx) {
+    return text.length * fontSize * 0.6
+  }
+  measureCtx.font = `${fontStyle} ${fontSize}px ${fontFamily}`
+  return measureCtx.measureText(text).width
+}
+
+function formatClock(seconds: number) {
+  const safe = Math.max(0, seconds)
+  const mins = Math.floor(safe / 60)
+  const secs = Math.floor(safe % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
 const npy = new npyjs()
@@ -186,7 +289,6 @@ function ReplayClient({
   stageWidth = 1000,
   stageHeight = 700,
 }: ReplayClientProps) {
-
   const [timestamp, setTimestamp] = useState(0)
   const [paused, setPaused] = useState(false)
   const [chunkCache, setChunkCache] = useState<Map<number, ChunkData>>(
@@ -196,24 +298,53 @@ function ReplayClient({
   const rafRef = useRef<number | null>(null)
   const lastTimeRef = useRef<number | null>(null)
   const loadingChunksRef = useRef<Set<number>>(new Set())
-  const lastLoggedSampleRef = useRef<string | null>(null)
 
   const {
     match_id: matchId,
     hz,
     interval_seconds: intervalSeconds,
-    index_to_player: indexToPlayer,
-  } =
-    matchMetadata
+    total_frames: totalFrames,
+    total_chunks: totalChunks,
+    duration_seconds: durationFromMeta,
+    index_to_player: indexToPlayerFromMeta,
+    player_to_index: playerToIndex,
+    id_to_username: idToUsername,
+  } = matchMetadata
+
+  // The ETL now guarantees player_to_index but not index_to_player, so invert
+  // it once (memoized) to map a player's array index back to their id/name.
+  const indexToPlayer = useMemo(() => {
+    if (indexToPlayerFromMeta && Object.keys(indexToPlayerFromMeta).length) {
+      return indexToPlayerFromMeta
+    }
+    const inverted: Record<string, string> = {}
+    if (playerToIndex) {
+      for (const [playerId, index] of Object.entries(playerToIndex)) {
+        inverted[String(index)] = playerId
+      }
+    }
+    return inverted
+  }, [indexToPlayerFromMeta, playerToIndex])
+
+  // Total match length in seconds. Prefer the explicit field; fall back to
+  // total_frames / hz; finally fall back to Infinity if neither exists.
+  const durationSeconds =
+    durationFromMeta ??
+    (totalFrames ? totalFrames / hz : Number.POSITIVE_INFINITY)
 
   const exactFrame = timestamp * hz
-  const frame = Math.floor(exactFrame)
-  const alpha = exactFrame - frame
+  // Clamp the frame so we never index past the last real frame of data.
+  const maxFrame = totalFrames ? totalFrames - 1 : Number.POSITIVE_INFINITY
+  const frame = Math.min(Math.floor(exactFrame), maxFrame)
+  const alpha = exactFrame - Math.floor(exactFrame)
   const framesPerChunk = chunkCache.get(0)?.shape[0] ?? hz * intervalSeconds
   const chunkIndex = Math.floor(frame / framesPerChunk)
-  const frameInChunk = frame % framesPerChunk
 
-  // RAF loop for timestamp
+  const atEnd = timestamp >= durationSeconds
+
+  // RAF loop for timestamp. delta is REAL elapsed seconds, and frame =
+  // timestamp * hz, so 1 real second always advances exactly `hz` frames =
+  // 1 second of game time. This is the 1:1 playback guarantee.
   useEffect(() => {
     if (paused) return
 
@@ -225,7 +356,11 @@ function ReplayClient({
       const delta = (now - lastTimeRef.current) / 1000
       lastTimeRef.current = now
 
-      setTimestamp((value) => value + delta)
+      setTimestamp((value) => {
+        const next = value + delta
+        // Stop exactly at the end of the match instead of running past it.
+        return next >= durationSeconds ? durationSeconds : next
+      })
 
       rafRef.current = requestAnimationFrame(loop)
     }
@@ -238,32 +373,29 @@ function ReplayClient({
       }
       lastTimeRef.current = null
     }
-  }, [paused])
+  }, [paused, durationSeconds])
+
+  // When we reach the end, pause so the RAF loop stops churning.
+  useEffect(() => {
+    if (atEnd && !paused) {
+      setPaused(true)
+    }
+  }, [atEnd, paused])
 
   useEffect(() => {
     if (!matchId) return
 
     async function ensureChunkLoaded(nextChunkIndex: number) {
-      if (nextChunkIndex < 0) {
-        return
-      }
-
-      if (chunkCache.has(nextChunkIndex)) {
-        console.log(
-          `[ReplayClient] chunk ${nextChunkIndex} already cached for frame ${frame}`,
-        )
-        return
-      }
-
-      if (loadingChunksRef.current.has(nextChunkIndex)) {
-        console.log(`[ReplayClient] chunk ${nextChunkIndex} already loading`)
-        return
-      }
+      if (nextChunkIndex < 0) return
+      // End-of-match guard: don't request chunks that don't exist in S3.
+      // This fixes the 404s after the last chunk played out.
+      if (totalChunks !== undefined && nextChunkIndex >= totalChunks) return
+      if (chunkCache.has(nextChunkIndex)) return
+      if (loadingChunksRef.current.has(nextChunkIndex)) return
 
       loadingChunksRef.current.add(nextChunkIndex)
 
       try {
-        console.log(`[ReplayClient] fetching chunk ${nextChunkIndex}`)
         const params = new URLSearchParams({
           matchId,
           chunkIndex: nextChunkIndex.toString(),
@@ -297,20 +429,12 @@ function ReplayClient({
           fortranOrder: parsed.fortranOrder,
         }
 
-        console.log(
-          `[ReplayClient] decoded chunk ${nextChunkIndex} shape=[${movementChunk.shape.join(', ')}] dtype=${movementChunk.dtype}`,
-        )
-
         setChunkCache((previous) => {
           if (previous.has(nextChunkIndex)) {
             return previous
           }
-
           const next = new Map(previous)
           next.set(nextChunkIndex, movementChunk)
-          console.log(
-            `[ReplayClient] cached chunk ${nextChunkIndex}; cache size=${next.size}`,
-          )
           return next
         })
       } finally {
@@ -320,7 +444,7 @@ function ReplayClient({
 
     void ensureChunkLoaded(chunkIndex)
     void ensureChunkLoaded(chunkIndex + 1)
-  }, [chunkCache, chunkIndex, frame, matchId])
+  }, [chunkCache, chunkIndex, matchId, totalChunks])
 
   const currentFrame = getFrame({
     absoluteFrame: frame,
@@ -334,10 +458,10 @@ function ReplayClient({
   })
   const currentChunk = chunkCache.get(chunkIndex)
   const currentPlayerStates = currentFrame
-    ? getPlayerStatesFromFrame(currentFrame, indexToPlayer)
+    ? getPlayerStatesFromFrame(currentFrame, indexToPlayer, idToUsername)
     : []
   const nextPlayerStates = nextFrame
-    ? getPlayerStatesFromFrame(nextFrame, indexToPlayer)
+    ? getPlayerStatesFromFrame(nextFrame, indexToPlayer, idToUsername)
     : []
   const playerStates = interpolatePlayerStates(
     currentPlayerStates,
@@ -345,213 +469,406 @@ function ReplayClient({
     alpha,
   )
 
-  useEffect(() => {
-    if (!currentChunk) {
-      console.log(
-        `[ReplayClient] waiting for chunk ${chunkIndex} at frame ${frame} (frameInChunk=${frameInChunk})`,
-      )
-      return
-    }
-
-    // Log at a low-noise cadence while still showing indexing progress.
-    const shouldLogFrame = frameInChunk === 0 || frame % Math.max(1, hz) === 0
-    const logKey = `${chunkIndex}:${frameInChunk}`
-
-    if (!shouldLogFrame || lastLoggedSampleRef.current === logKey) {
-      return
-    }
-
-    lastLoggedSampleRef.current = logKey
-
-    console.log(
-      `[ReplayClient] sampling frame ${frame} from chunk ${chunkIndex} (frameInChunk=${frameInChunk}, alpha=${alpha.toFixed(2)}, players=${playerStates.length})`,
-    )
-  }, [alpha, chunkIndex, currentChunk, frame, frameInChunk, hz, playerStates.length])
-
   function onPlayPauseClick() {
+    // If we're sitting at the end, replay from the start.
+    if (atEnd) {
+      setTimestamp(0)
+      setPaused(false)
+      lastTimeRef.current = null
+      return
+    }
     setPaused((value) => !value)
     lastTimeRef.current = null
   }
 
+  function onScrub(nextSeconds: number) {
+    setTimestamp(nextSeconds)
+    // Reset the RAF clock so playback doesn't "catch up" with a huge delta
+    // after a seek.
+    lastTimeRef.current = null
+  }
+
   return (
-    <div 
-      className="flex flex-col items-center justify-center" 
+    <div
+      className="relative inline-flex flex-col overflow-hidden rounded-lg"
       style={{ backgroundColor: '#2f3136' }}
       data-map-id={mapId}
     >
       {!currentChunk && (
-        <div className="mb-2 text-white bg-green-500">
-          Loading chunk {chunkIndex} for frame {frame}...
+        <div className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-1 text-sm text-white">
+          Loading chunk {chunkIndex}…
         </div>
       )}
+
       <ReplayViewport
+        mapId={mapId}
         playerStates={playerStates}
-        framesPerChunk={framesPerChunk}
         stageWidth={stageWidth}
         stageHeight={stageHeight}
       />
-      <ReplayControls 
-        onPlayPauseClick={onPlayPauseClick} 
-        timestamp={timestamp} 
-        paused={paused} 
+
+      {/* Floating controls overlaid on the bottom of the map. */}
+      <ReplayControls
+        onPlayPauseClick={onPlayPauseClick}
+        onScrub={onScrub}
+        timestamp={Math.min(timestamp, durationSeconds)}
+        durationSeconds={durationSeconds}
+        paused={paused}
+        atEnd={atEnd}
       />
     </div>
   )
 }
 
+// Renders one player: a direction arrowhead plus a stacked shield/health bar
+// and a nametag floating above it. Everything except the world position is
+// drawn in SCREEN pixels by scaling the group by 1/stageScale, so markers stay
+// a constant on-screen size no matter how far you zoom in or out.
+function PlayerMarker({
+  x,
+  y,
+  directionDeg,
+  hp,
+  shield,
+  label,
+  dbno,
+  invScale,
+}: {
+  x: number
+  y: number
+  directionDeg: number
+  hp: number
+  shield: number
+  label: string
+  dbno: boolean
+  invScale: number
+}) {
+  const color = dbno ? '#facc15' : '#4ade80'
+  const hpRatio = Math.max(0, Math.min(1, hp / 100))
+  const shieldRatio = Math.max(0, Math.min(1, shield / 100))
+
+  // ----- Layout constants (in on-screen px; bump these to resize everything) --
+  const FONT_SIZE = 13
+  const MIN_CONTENT_WIDTH = 60 // floor for the bars/box so short names aren't tiny
+  const BAR_HEIGHT = 7
+  const BAR_GAP = 2 // vertical gap between the shield and health bars
+  const NAME_BAR_GAP = 3 // gap between the nametag and the top (shield) bar
+  const BOX_PADDING = 4 // inner padding of the dark box
+  const BOX_GAP = 16 // gap between the box bottom and the player/arrow
+
+  // The content width grows to fit a long username (measured to the exact
+  // rendered pixel width) but never drops below MIN_CONTENT_WIDTH. The bars span
+  // this full content width, so they always reach the box edges and long names
+  // get no extra padding.
+  const contentWidth = Math.max(
+    MIN_CONTENT_WIDTH,
+    measureTextWidth(label, FONT_SIZE),
+  )
+  const boxWidth = contentWidth + BOX_PADDING * 2
+  const contentHeight =
+    FONT_SIZE + NAME_BAR_GAP + BAR_HEIGHT + BAR_GAP + BAR_HEIGHT
+  const boxHeight = contentHeight + BOX_PADDING * 2
+  const boxLeft = -boxWidth / 2
+  const boxBottom = -BOX_GAP
+  const boxTop = boxBottom - boxHeight
+
+  const nameY = boxTop + BOX_PADDING
+  const shieldY = nameY + FONT_SIZE + NAME_BAR_GAP
+  const healthY = shieldY + BAR_HEIGHT + BAR_GAP
+  const barLeft = -contentWidth / 2
+
+  return (
+    <Group x={x} y={y} scaleX={invScale} scaleY={invScale} listening={false}>
+      {/* Arrowhead. Drawn pointing east (+x) at rotation 0, then rotated to the
+          player's view direction. The 4th point pulls the back edge inward
+          (the notch) so it reads as an arrowhead, not a plain triangle.
+          Rotating the INNER group keeps the box/bars/name upright. */}
+      <Group rotation={directionDeg}>
+        <Line
+          points={[10, 0, -8, -7, -3.5, 0, -8, 7]}
+          closed
+          fill={color}
+          stroke="#0b0b0b"
+          strokeWidth={1.5}
+        />
+      </Group>
+
+      {/* Translucent backing box so the name + bars stay readable over any map
+          terrain. */}
+      <Rect
+        x={boxLeft}
+        y={boxTop}
+        width={boxWidth}
+        height={boxHeight}
+        fill="rgba(0, 0, 0, 0.6)"
+        stroke="rgba(255, 255, 255, 0.18)"
+        strokeWidth={1}
+      />
+
+      {/* Nametag */}
+      <Text
+        x={boxLeft}
+        y={nameY}
+        width={boxWidth}
+        align="center"
+        text={label}
+        fill="white"
+        fontSize={FONT_SIZE}
+        fontStyle="bold"
+        wrap="none"
+      />
+
+      {/* Shield bar (top) */}
+      <Rect
+        x={barLeft}
+        y={shieldY}
+        width={contentWidth}
+        height={BAR_HEIGHT}
+        fill="#1f2937"
+      />
+      <Rect
+        x={barLeft}
+        y={shieldY}
+        width={contentWidth * shieldRatio}
+        height={BAR_HEIGHT}
+        fill="#3b82f6"
+      />
+
+      {/* Health bar (below shield) */}
+      <Rect
+        x={barLeft}
+        y={healthY}
+        width={contentWidth}
+        height={BAR_HEIGHT}
+        fill="#1f2937"
+      />
+      <Rect
+        x={barLeft}
+        y={healthY}
+        width={contentWidth * hpRatio}
+        height={BAR_HEIGHT}
+        fill="#22c55e"
+      />
+    </Group>
+  )
+}
+
 function ReplayViewport({
+  mapId,
   playerStates,
-  framesPerChunk,
   stageWidth,
   stageHeight,
 }: {
+  mapId: string
   playerStates: PlayerState[]
-  framesPerChunk: number
   stageWidth: number
   stageHeight: number
 }) {
-  const [mapImage] = useImage(`/maps/v39/02/39.02.png`);
-  const stageRef = useRef<KonvaStage>(null);
+  const effectiveMapId = REPLAY_MAP_IMAGE_BY_ID[mapId] ? mapId : 'br'
+  const mapImageSrc = REPLAY_MAP_IMAGE_BY_ID[effectiveMapId]
+  const replayMapDefinition = getReplayMapDefinition(effectiveMapId)
+  const replayPois = replayMapDefinition.pois ?? []
+  const [mapImage] = useImage(mapImageSrc)
+  const stageRef = useRef<KonvaStage>(null)
 
-  const MIN_SCALE = 0.05;
-  const MAX_SCALE = 30.0;
+  // We mirror the stage's zoom in React state so the markers can inverse-scale
+  // and stay a constant on-screen size. Konva owns the actual transform; this
+  // is just a copy we read for sizing.
+  const MIN_SCALE = 0.5
+  const MAX_SCALE = 10.0
+
+  const [stageScale, setStageScale] = useState(MIN_SCALE)
+
 
   useEffect(() => {
-    if (!mapImage || !stageRef.current) return;
+    if (!mapImage || !stageRef.current) return
 
-    const stage = stageRef.current;
-    const scale = 0.35;
+    const stage = stageRef.current
+    const scale = Math.min(
+      stageWidth / mapImage.width,
+      stageHeight / mapImage.height,
+    )
 
-    stage.scale({ x: scale, y: scale });
+    stage.scale({ x: scale, y: scale })
     stage.position({
       x: stageWidth / 2,
       y: stageHeight / 2,
-    });
-
-    stage.batchDraw();
-  }, [mapImage, stageHeight, stageWidth]);
+    })
+    stage.batchDraw()
+  }, [mapImage, stageHeight, stageWidth])
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
-    e.evt.preventDefault();
+    e.evt.preventDefault()
 
-    const stage = stageRef.current;
-    if (!stage) return;
-    const oldScale = stage.scaleX();
-    const pointer = stage.getPointerPosition();
-    if (!pointer) return;
+    const stage = stageRef.current
+    if (!stage) return
+    const oldScale = stage.scaleX()
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
 
     const mousePointTo = {
       x: (pointer.x - stage.x()) / oldScale,
       y: (pointer.y - stage.y()) / oldScale,
     }
 
-    const direction = e.evt.deltaY < 0 ? 1 : -1;
+    const direction = e.evt.deltaY < 0 ? 1 : -1
+    const scaleBy = 1.1
+    let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy
+    newScale = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE))
+    if (newScale === oldScale) return
 
-    const scaleBy = 1.1;
-    let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
-    newScale = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE));
-    if (newScale === oldScale) 
-      return;
-
-    stage.scale({x: newScale, y: newScale});
+    stage.scale({ x: newScale, y: newScale })
 
     const newPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
     }
-    stage.position(newPos);
-    stage.batchDraw();
+    stage.position(newPos)
+    stage.batchDraw()
+    setStageScale(newScale)
   }
-  if (!mapImage) return null;
+
+  if (!mapImage) return null
 
   const dragBoundFunc = (pos: { x: number; y: number }) => {
-    const stage = stageRef.current;
-    if (!stage || !mapImage) return pos;
-  
-    const scale = stage.scaleX();
-  
-    const mapW = mapImage.width * scale;
-    const mapH = mapImage.height * scale;
-  
-    const minX = stageWidth / 2 - mapW / 2;
-    const maxX = stageWidth / 2 + mapW / 2;
-    const minY = stageHeight / 2 - mapH / 2;
-    const maxY = stageHeight / 2 + mapH / 2;
-  
+    const stage = stageRef.current
+    if (!stage || !mapImage) return pos
+
+    const scale = stage.scaleX()
+
+    const mapW = mapImage.width * scale
+    const mapH = mapImage.height * scale
+
+    const minX = stageWidth / 2 - mapW / 2
+    const maxX = stageWidth / 2 + mapW / 2
+    const minY = stageHeight / 2 - mapH / 2
+    const maxY = stageHeight / 2 + mapH / 2
+
     return {
       x: Math.min(maxX, Math.max(minX, pos.x)),
       y: Math.min(maxY, Math.max(minY, pos.y)),
-    };
-  };
+    }
+  }
+
+  // 1 / stageScale: markers live inside the (scaled) world layer, so we
+  // pre-divide their sizes to cancel out the zoom and keep them
+  // screen-constant.
+  const invScale = 1 / stageScale
 
   return (
-    <div className="flex-1 w-full">
-      <Stage 
-        ref={stageRef}
-        width={stageWidth} 
-        height={stageHeight}
-        onWheel={handleWheel}
-        draggable
-        dragBoundFunc={dragBoundFunc}
-      >
-        <Layer>
-          <KonvaImage
-            image={mapImage}
-            offsetX={mapImage.width / 2}
-            offsetY={mapImage.height / 2}
-          />
-          {playerStates
-            .filter((player) => player.alive)
-            .map((player) => {
-              const projected = projectWorldToMap({
-                state: player,
-                mapWidth: mapImage.width,
-                mapHeight: mapImage.height,
-              })
+    <Stage
+      ref={stageRef}
+      width={stageWidth}
+      height={stageHeight}
+      onWheel={handleWheel}
+      draggable
+      dragBoundFunc={dragBoundFunc}
+    >
+      <Layer>
+        <KonvaImage
+          image={mapImage}
+          offsetX={mapImage.width / 2}
+          offsetY={mapImage.height / 2}
+        />
+        {replayPois.map((poi) => {
+          const projected = projectReplayWorldToMapImage({
+            x: poi.position.x,
+            y: poi.position.y,
+            imageWidth: mapImage.width,
+            imageHeight: mapImage.height,
+            mapId: effectiveMapId,
+          })
 
-              return (
-                <Circle
-                  key={player.playerId ?? `player-${player.playerIndex}`}
-                  x={projected.x}
-                  y={projected.y}
-                  radius={player.dbno ? 50 : 40}
-                  fill={player.dbno ? '#facc15' : '#4ade80'}
-                  opacity={0.9}
-                />
-              )
-            })}
-          <Text
-            x={-mapImage.width / 2 + 24}
-            y={-mapImage.height / 2 + 24}
-            text={`players on frame: ${playerStates.length}\nframes/chunk: ${framesPerChunk}`}
-            fill="white"
-            fontSize={18}
-          />
-        </Layer>
-      </Stage>
-    </div>
+          return (
+            <Circle
+              key={poi.locationTag}
+              x={projected.x}
+              y={projected.y}
+              radius={18}
+              fill="#f43f5e"
+              stroke="white"
+              strokeWidth={3}
+              opacity={0.95}
+            />
+          )
+        })}
+        {playerStates
+          .filter((player) => player.alive && player.known)
+          .map((player) => {
+            const projected = projectWorldToMap({
+              state: player,
+              mapId: effectiveMapId,
+              mapWidth: mapImage.width,
+              mapHeight: mapImage.height,
+            })
+
+            return (
+              <PlayerMarker
+                key={player.playerId ?? `player-${player.playerIndex}`}
+                x={projected.x}
+                y={projected.y}
+                directionDeg={yawToScreenDegrees(player.yawDeg)}
+                hp={player.hp}
+                shield={player.shield}
+                label={player.username ?? `P${player.playerIndex}`}
+                dbno={player.dbno}
+                invScale={invScale}
+              />
+            )
+          })}
+      </Layer>
+    </Stage>
   )
 }
 
 function ReplayControls({
-  onPlayPauseClick, 
-  timestamp, 
-  paused
+  onPlayPauseClick,
+  onScrub,
+  timestamp,
+  durationSeconds,
+  paused,
+  atEnd,
 }: {
-  onPlayPauseClick: () => void, 
-  timestamp: number, 
+  onPlayPauseClick: () => void
+  onScrub: (seconds: number) => void
+  timestamp: number
+  durationSeconds: number
   paused: boolean
+  atEnd: boolean
 }) {
+  const hasDuration = Number.isFinite(durationSeconds)
+
   return (
-      <div className="bg-green-500">
-        <button onClick={onPlayPauseClick}>
-          {paused ? "Play" : "Pause"}
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-4">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-black/70 px-4 py-2 backdrop-blur">
+        <button
+          className="rounded bg-white px-3 py-1 text-sm font-medium text-black"
+          onClick={onPlayPauseClick}
+        >
+          {atEnd ? 'Replay' : paused ? 'Play' : 'Pause'}
         </button>
-        <div className="text-white text-lg">
-          Time: {timestamp.toFixed(2)}s
-        </div>
+
+        <span className="w-12 text-right font-mono text-xs text-white">
+          {formatClock(timestamp)}
+        </span>
+
+        <input
+          type="range"
+          className="flex-1 accent-green-400"
+          min={0}
+          max={hasDuration ? durationSeconds : 0}
+          step={0.1}
+          value={timestamp}
+          disabled={!hasDuration}
+          onChange={(e) => onScrub(Number(e.target.value))}
+        />
+
+        <span className="w-12 font-mono text-xs text-white">
+          {hasDuration ? formatClock(durationSeconds) : '--:--'}
+        </span>
       </div>
+    </div>
   )
 }
 
-export default ReplayClient;
+export default ReplayClient
