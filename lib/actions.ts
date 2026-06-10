@@ -48,21 +48,31 @@ export async function getAllPlayers(matchIds: string[]): Promise<Array<{ epicId:
 export async function getWeaponIds(
   eventWindowIds: string[]
 ): Promise<Array<{ id: string; label: string }>> {
-  if (eventWindowIds.length === 0) {
-    return [];
-  }
+  if (eventWindowIds.length === 0) return [];
 
-  const weapons = await prisma.weapons.findMany({
+  // weapons is now a global catalog (no event_window_id column). Per-match
+  // weapon appearances live in match_weapons, so we go:
+  //   event_window_ids → match_ids → match_weapons.weapon_type
+  const matchRows = await prisma.matches.findMany({
     where: { event_window_id: { in: eventWindowIds } },
+    select: { match_id: true },
+  });
+  const matchIds = matchRows.map((m: { match_id: string }) => m.match_id);
+  if (matchIds.length === 0) return [];
+
+  const rows = await prisma.match_weapons.findMany({
+    where: { match_id: { in: matchIds }, weapon_type: { not: null } },
     select: { weapon_type: true },
     distinct: ['weapon_type'],
     orderBy: { weapon_type: 'asc' },
   });
 
-  return weapons.map((w: { weapon_type: string }) => ({
-    id: w.weapon_type,
-    label: w.weapon_type,
-  }));
+  return rows
+    .filter((w: { weapon_type: string | null }) => w.weapon_type !== null)
+    .map((w: { weapon_type: string | null }) => ({
+      id: w.weapon_type!,
+      label: w.weapon_type!,
+    }));
 }
 
 // ============================================================================
