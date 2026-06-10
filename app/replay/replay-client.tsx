@@ -9,14 +9,16 @@ import {
   Rect,
   Line,
   Text,
+  Shape,
 } from 'react-konva'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import useImage from 'use-image'
 import npyjs from 'npyjs'
 import {
   getReplayMapDefinition,
+  getReplayWorldScale,
   projectReplayWorldToMapImage,
   REPLAY_MAP_IMAGE_BY_ID,
 } from '@/lib/replay/map-projection'
@@ -64,6 +66,143 @@ type ChunkData = {
   shape: [number, number, number]
   dtype: string
   fortranOrder: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Zone data
+// ---------------------------------------------------------------------------
+// One entry per storm phase, as written by the ETL into zones.json.
+// Timestamps are seconds relative to match start (same origin as `timestamp`).
+type ZonePhase = {
+  phase: number
+  shrinkStart: number
+  shrinkEnd: number
+  prevCX: number
+  prevCY: number
+  prevR: number
+  nextCX: number
+  nextCY: number
+  nextR: number
+}
+
+// Interpolated circle at a specific time — world-space coords, ready to project.
+type ZoneCircle = { cx: number; cy: number; r: number }
+
+// HUD info derived from zone phases each frame.
+type ZoneHudInfo = {
+  // Zone number we're currently inside (1-indexed).
+  currentZone: number
+  // Total zone circles in this match (= last phase.phase + 1).
+  totalZones: number
+  // True while the circle is actively shrinking.
+  isShrinking: boolean
+  // Seconds until the next state change: if shrinking → until it stops;
+  // if waiting → until it starts moving. Null after the final zone.
+  countdownSeconds: number | null
+}
+
+/**
+ * Returns the interpolated storm-circle at time `t` (seconds from match start).
+ *
+ * Zones are sparse: typically ~10 phases per match.  A linear scan is O(10)
+ * and completely negligible compared to the 60 Hz render cycle, so we don't
+ * bother with a cursor or binary search.  The same approach is used in game
+ * engines (Unity AnimationCurve, Unreal UCurves) for small keyframe sets.
+ *
+ * Timeline model for each phase p:
+ *   t < p.shrinkStart  → static circle at p.prev (waiting for next shrink)
+ *   t in [shrinkStart, shrinkEnd] → lerp p.prev → p.next
+ *   t > shrinkEnd      → advance to next phase (or return last.next)
+ */
+function getZoneAtTime(t: number, phases: ZonePhase[]): ZoneCircle | null {
+  if (!phases.length) return null
+
+  for (const p of phases) {
+    if (t < p.shrinkStart) {
+      // Before this phase's shrink begins — circle is static at prevZone
+      return { cx: p.prevCX, cy: p.prevCY, r: p.prevR }
+    }
+    if (t <= p.shrinkEnd) {
+      // Actively shrinking
+      const a = (t - p.shrinkStart) / (p.shrinkEnd - p.shrinkStart)
+      return {
+        cx: lerp(p.prevCX, p.nextCX, a),
+        cy: lerp(p.prevCY, p.nextCY, a),
+        r: lerp(p.prevR, p.nextR, a),
+      }
+    }
+    // t > shrinkEnd — check next phase
+  }
+
+  // Past all phases: static at the final (innermost) zone
+  const last = phases[phases.length - 1]
+  return { cx: last.nextCX, cy: last.nextCY, r: last.nextR }
+}
+
+/**
+ * Returns the static "next" zone circle that the current zone is shrinking
+ * toward, or null once we're past all phases (the final zone has no successor).
+ *
+ * This is always `p.next` for whichever phase p we're currently in (either
+ * waiting for or actively shrinking). After the last shrink completes it
+ * returns null, which tells the renderer not to draw a preview circle.
+ */
+function getNextZoneAtTime(t: number, phases: ZonePhase[]): ZoneCircle | null {
+  if (!phases.length) return null
+
+  for (const p of phases) {
+    if (t <= p.shrinkEnd) {
+      return { cx: p.nextCX, cy: p.nextCY, r: p.nextR }
+    }
+  }
+  // Past all phases — final circle, no next zone
+  return null
+}
+
+/**
+ * Derives HUD info from the zone phases at time `t`.
+ *
+ * Zone numbering: each phase p describes the shrink from zone p.phase to the
+ * next zone. So while we're in / waiting for phase p we're "inside zone p".
+ * After the last phase completes there's no more shrinking; currentZone jumps
+ * to totalZones (= last phase.phase + 1), which is the final safe circle.
+ *
+ * Examples for phases = [{ phase:1, shrinkStart:60, shrinkEnd:120 }, { phase:2, … }]:
+ *   t=30  → zone 1, NOT shrinking, countdown = 30 s until shrink starts
+ *   t=90  → zone 1, IS shrinking,  countdown = 30 s until shrink ends
+ *   t=150 → zone 2, NOT shrinking, countdown = … s until next shrink
+ */
+function getZoneHudInfo(t: number, phases: ZonePhase[]): ZoneHudInfo | null {
+  if (!phases.length) return null
+
+  const totalZones = phases[phases.length - 1].phase + 1
+
+  for (const p of phases) {
+    if (t < p.shrinkStart) {
+      return {
+        currentZone: p.phase,
+        totalZones,
+        isShrinking: false,
+        countdownSeconds: Math.max(0, p.shrinkStart - t),
+      }
+    }
+    if (t <= p.shrinkEnd) {
+      return {
+        currentZone: p.phase,
+        totalZones,
+        isShrinking: true,
+        countdownSeconds: Math.max(0, p.shrinkEnd - t),
+      }
+    }
+  }
+
+  // Past all phases — resting in the final zone.
+  return {
+    currentZone: totalZones,
+    totalZones,
+    isShrinking: false,
+    countdownSeconds: null,
+  }
 }
 
 type ReplayClientProps = {
@@ -157,6 +296,11 @@ function getFrame({
   const frameInChunk = absoluteFrame % framesPerChunk
   const chunk = chunkCache.get(chunkIndex)
   if (!chunk) {
+    return null
+  }
+  // The last chunk is often shorter than a full chunk. Guard here so
+  // getFrameSlice never sees an out-of-bounds index (nextFrame at end-of-match).
+  if (frameInChunk >= chunk.shape[0]) {
     return null
   }
   return getFrameSlice(chunk, frameInChunk)
@@ -283,6 +427,105 @@ function formatClock(seconds: number) {
 
 const npy = new npyjs()
 
+// ---------------------------------------------------------------------------
+// Zone HUD icons (inline SVG, 14×14 design units)
+// ---------------------------------------------------------------------------
+
+function PersonIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <circle cx="7" cy="3.5" r="2.5" fill="white" opacity="0.9" />
+      <path
+        d="M1.5 13c0-3.038 2.462-5.5 5.5-5.5s5.5 2.462 5.5 5.5"
+        stroke="white"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.9"
+      />
+    </svg>
+  )
+}
+
+function ClockIcon({ shrinking }: { shrinking: boolean }) {
+  // Hands turn orange while the zone is actively closing so it's clear the
+  // countdown means "closing in" rather than "next storm".
+  const handColor = shrinking ? '#fb923c' : 'white'
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <circle cx="7" cy="7" r="5.5" stroke="white" strokeWidth="1.5" opacity="0.9" />
+      <path
+        d="M7 4.5V7l1.75 1.25"
+        stroke={handColor}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function StormIcon() {
+  return (
+    <svg width="11" height="14" viewBox="0 0 11 14" fill="none" aria-hidden>
+      <path d="M6.5 1L1 8h4.5L4 13l6.5-7H6L6.5 1z" fill="white" opacity="0.9" />
+    </svg>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Zone HUD overlay (HTML, absolutely positioned over the canvas)
+// ---------------------------------------------------------------------------
+
+function ZoneHud({
+  playersAlive,
+  totalPlayers,
+  zoneInfo,
+}: {
+  playersAlive: number
+  totalPlayers: number
+  zoneInfo: ZoneHudInfo | null
+}) {
+  const pill =
+    'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold text-white tabular-nums'
+  const bg = 'bg-[#1e1f22]/80 backdrop-blur-sm'
+
+  const countdown = zoneInfo?.countdownSeconds
+  const countdownStr = countdown != null ? formatClock(countdown) : '—'
+  const shrinking = zoneInfo?.isShrinking ?? false
+
+  return (
+    <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
+      {/* Players alive */}
+      <div className={`${pill} ${bg}`}>
+        <PersonIcon />
+        <span>
+          {playersAlive}
+          <span className="opacity-50">/{totalPlayers}</span>
+        </span>
+      </div>
+
+      {/* Countdown — orange clock while shrinking, white while waiting */}
+      <div className={`${pill} ${bg}`}>
+        <ClockIcon shrinking={shrinking} />
+        <span className={shrinking ? 'text-orange-400' : 'text-white'}>
+          {countdownStr}
+        </span>
+      </div>
+
+      {/* Zone number */}
+      {zoneInfo && (
+        <div className={`${pill} ${bg}`}>
+          <StormIcon />
+          <span>
+            {zoneInfo.currentZone}
+            <span className="opacity-50">/{zoneInfo.totalZones}</span>
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ReplayClient({
   mapId,
   matchMetadata,
@@ -294,6 +537,7 @@ function ReplayClient({
   const [chunkCache, setChunkCache] = useState<Map<number, ChunkData>>(
     () => new Map(),
   )
+  const [zonePhases, setZonePhases] = useState<ZonePhase[]>([])
 
   const rafRef = useRef<number | null>(null)
   const lastTimeRef = useRef<number | null>(null)
@@ -446,6 +690,26 @@ function ReplayClient({
     void ensureChunkLoaded(chunkIndex + 1)
   }, [chunkCache, chunkIndex, matchId, totalChunks])
 
+  // Fetch zones.json once on mount. Zones are sparse JSON (one record per
+  // phase, ~10 per match) — nothing like the dense 30 Hz movement chunks.
+  useEffect(() => {
+    if (!matchId) return
+    const params = new URLSearchParams({ matchId })
+    fetch(`/api/replay/zones?${params}`)
+      .then((res) => {
+        if (!res.ok) {
+          // 404 is expected for matches processed before zone ETL was added.
+          if (res.status !== 404) console.error('Failed to fetch zones', res.status)
+          return null
+        }
+        return res.json() as Promise<ZonePhase[]>
+      })
+      .then((data) => {
+        if (data) setZonePhases(data)
+      })
+      .catch((err) => console.error('Zone fetch error', err))
+  }, [matchId])
+
   const currentFrame = getFrame({
     absoluteFrame: frame,
     chunkCache,
@@ -468,6 +732,20 @@ function ReplayClient({
     nextPlayerStates,
     alpha,
   )
+
+  // Compute the current zone circle from sparse phase data. Pure function —
+  // no state, re-evaluated every render frame (same pattern as player lerp).
+  const zone = getZoneAtTime(timestamp, zonePhases)
+  const nextZone = getNextZoneAtTime(timestamp, zonePhases)
+  const zoneHudInfo = getZoneHudInfo(timestamp, zonePhases)
+
+  // Players alive: count alive flags in the current interpolated frame.
+  // At very start (before first chunk) this is 0; that's acceptable.
+  const playersAlive = playerStates.filter((p) => p.alive).length
+  // Total player count — prefer explicit metadata field, fall back to the
+  // size of the player-index map (built from player_to_index in metadata).
+  const totalPlayers =
+    matchMetadata.player_count ?? Object.keys(playerToIndex ?? {}).length
 
   function onPlayPauseClick() {
     // If we're sitting at the end, replay from the start.
@@ -500,9 +778,17 @@ function ReplayClient({
         </div>
       )}
 
+      <ZoneHud
+        playersAlive={playersAlive}
+        totalPlayers={totalPlayers}
+        zoneInfo={zoneHudInfo}
+      />
+
       <ReplayViewport
         mapId={mapId}
         playerStates={playerStates}
+        zone={zone}
+        nextZone={nextZone}
         stageWidth={stageWidth}
         stageHeight={stageHeight}
       />
@@ -656,11 +942,15 @@ function PlayerMarker({
 function ReplayViewport({
   mapId,
   playerStates,
+  zone,
+  nextZone,
   stageWidth,
   stageHeight,
 }: {
   mapId: string
   playerStates: PlayerState[]
+  zone: ZoneCircle | null
+  nextZone: ZoneCircle | null
   stageWidth: number
   stageHeight: number
 }) {
@@ -671,30 +961,33 @@ function ReplayViewport({
   const [mapImage] = useImage(mapImageSrc)
   const stageRef = useRef<KonvaStage>(null)
 
+  // fitScale is derived — no effect needed. MIN_SCALE equals fitScale so the
+  // user can never zoom out further than "map fills the viewport".
+  // "cover" fit: image fills the entire viewport in both dimensions.
+  // min() would letterbox (gray bars); max() overflows the short axis instead,
+  // which the drag/zoom bounds then clamp so gray never shows.
+  const fitScale = mapImage
+    ? Math.max(stageWidth / mapImage.width, stageHeight / mapImage.height)
+    : 0.5
+  const MAX_SCALE = 10.0
+
   // We mirror the stage's zoom in React state so the markers can inverse-scale
   // and stay a constant on-screen size. Konva owns the actual transform; this
   // is just a copy we read for sizing.
-  const MIN_SCALE = 0.5
-  const MAX_SCALE = 10.0
+  const [stageScale, setStageScale] = useState(fitScale)
 
-  const [stageScale, setStageScale] = useState(MIN_SCALE)
-
-
-  useEffect(() => {
+  // useLayoutEffect fires before the browser paints, so the stage is at the
+  // correct scale on the very first frame — no gray-border flash.
+  useLayoutEffect(() => {
     if (!mapImage || !stageRef.current) return
 
     const stage = stageRef.current
-    const scale = Math.min(
-      stageWidth / mapImage.width,
-      stageHeight / mapImage.height,
-    )
+    const scale = Math.max(stageWidth / mapImage.width, stageHeight / mapImage.height)
 
     stage.scale({ x: scale, y: scale })
-    stage.position({
-      x: stageWidth / 2,
-      y: stageHeight / 2,
-    })
+    stage.position({ x: stageWidth / 2, y: stageHeight / 2 })
     stage.batchDraw()
+    // setStageScale(scale)
   }, [mapImage, stageHeight, stageWidth])
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -714,14 +1007,22 @@ function ReplayViewport({
     const direction = e.evt.deltaY < 0 ? 1 : -1
     const scaleBy = 1.1
     let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy
-    newScale = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE))
+    newScale = Math.max(fitScale, Math.min(newScale, MAX_SCALE))
     if (newScale === oldScale) return
 
     stage.scale({ x: newScale, y: newScale })
 
-    const newPos = {
+    // After clamping scale, clamp the new position too so zooming out near the
+    // edge doesn't expose the gray border.
+    const scaledW = mapImage ? mapImage.width * newScale : 0
+    const scaledH = mapImage ? mapImage.height * newScale : 0
+    const rawPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
+    }
+    const newPos = {
+      x: Math.max(stageWidth - scaledW / 2, Math.min(scaledW / 2, rawPos.x)),
+      y: Math.max(stageHeight - scaledH / 2, Math.min(scaledH / 2, rawPos.y)),
     }
     stage.position(newPos)
     stage.batchDraw()
@@ -732,21 +1033,20 @@ function ReplayViewport({
 
   const dragBoundFunc = (pos: { x: number; y: number }) => {
     const stage = stageRef.current
-    if (!stage || !mapImage) return pos
+    if (!stage) return pos
 
     const scale = stage.scaleX()
+    const scaledW = mapImage.width * scale
+    const scaledH = mapImage.height * scale
 
-    const mapW = mapImage.width * scale
-    const mapH = mapImage.height * scale
-
-    const minX = stageWidth / 2 - mapW / 2
-    const maxX = stageWidth / 2 + mapW / 2
-    const minY = stageHeight / 2 - mapH / 2
-    const maxY = stageHeight / 2 + mapH / 2
-
+    // The image is centered on the stage origin (offsetX/offsetY = half image
+    // dims). For the image to fully cover the viewport, the stage origin must
+    // stay within these bounds:
+    //   left edge of image ≤ 0  →  stage.x ≤ scaledW / 2
+    //   right edge ≥ stageWidth →  stage.x ≥ stageWidth - scaledW / 2
     return {
-      x: Math.min(maxX, Math.max(minX, pos.x)),
-      y: Math.min(maxY, Math.max(minY, pos.y)),
+      x: Math.max(stageWidth - scaledW / 2, Math.min(scaledW / 2, pos.x)),
+      y: Math.max(stageHeight - scaledH / 2, Math.min(scaledH / 2, pos.y)),
     }
   }
 
@@ -770,6 +1070,88 @@ function ReplayViewport({
           offsetX={mapImage.width / 2}
           offsetY={mapImage.height / 2}
         />
+
+        {/* Storm — drawn in world space (projected to map-image pixel coords).
+            Three elements stacked:
+              1. Storm overlay: purple fill everywhere OUTSIDE the current zone.
+                 Achieved with a full-map rect + counterclockwise circle hole
+                 (nonzero winding rule punches the safe zone out of the fill).
+              2. Next zone: white circle showing where the storm will settle.
+                 Hidden once we're on the final phase (getNextZoneAtTime → null).
+              3. Current zone border: purple ring at the storm edge. */}
+        {zone && (() => {
+          const worldScale = getReplayWorldScale({
+            imageWidth: mapImage.width,
+            mapId: effectiveMapId,
+          })
+          const projected = projectReplayWorldToMapImage({
+            x: zone.cx,
+            y: zone.cy,
+            imageWidth: mapImage.width,
+            imageHeight: mapImage.height,
+            mapId: effectiveMapId,
+          })
+          const pixelRadius = zone.r * worldScale
+
+          const nextProjected = nextZone
+            ? projectReplayWorldToMapImage({
+                x: nextZone.cx,
+                y: nextZone.cy,
+                imageWidth: mapImage.width,
+                imageHeight: mapImage.height,
+                mapId: effectiveMapId,
+              })
+            : null
+          const nextPixelRadius = nextZone ? nextZone.r * worldScale : 0
+
+          return (
+            <>
+              {/* Storm overlay */}
+              <Shape
+                sceneFunc={(ctx, shape) => {
+                  ctx.beginPath()
+                  // Full map rectangle — clockwise (winding +1)
+                  ctx.rect(
+                    -mapImage.width / 2,
+                    -mapImage.height / 2,
+                    mapImage.width,
+                    mapImage.height,
+                  )
+                  // Safe zone circle — counterclockwise (winding -1 = hole)
+                  ctx.arc(projected.x, projected.y, pixelRadius, 0, Math.PI * 2, true)
+                  ctx.closePath()
+                  ctx.fillStrokeShape(shape)
+                }}
+                fill="rgba(130, 60, 210, 0.42)"
+                listening={false}
+              />
+
+              {/* Next zone preview (white) */}
+              {nextProjected && (
+                <Circle
+                  x={nextProjected.x}
+                  y={nextProjected.y}
+                  radius={nextPixelRadius}
+                  stroke="rgba(255, 255, 255, 0.75)"
+                  strokeWidth={2 / stageScale}
+                  listening={false}
+                />
+              )}
+
+              {/* Current zone border (purple) */}
+              <Circle
+                x={projected.x}
+                y={projected.y}
+                radius={pixelRadius}
+                stroke="rgba(180, 80, 255, 0.9)"
+                strokeWidth={2.5 / stageScale}
+                listening={false}
+              />
+            </>
+          )
+        })()}
+
+        {/*
         {replayPois.map((poi) => {
           const projected = projectReplayWorldToMapImage({
             x: poi.position.x,
@@ -792,6 +1174,8 @@ function ReplayViewport({
             />
           )
         })}
+        */}
+
         {playerStates
           .filter((player) => player.alive && player.known)
           .map((player) => {
