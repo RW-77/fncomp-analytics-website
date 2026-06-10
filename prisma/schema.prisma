@@ -14,8 +14,8 @@ model damage_dealt_events {
   game_time_seconds                                             Int?
   actor_id                                                      Int?
   recipient_id                                                  Int?
-  weapon_id                                                     String         @db.VarChar(100)
-  weapon_type                                                   String?        @db.VarChar(50)
+  weapon_id                                                     String         @db.VarChar(200)
+  weapon_type                                                   String?        @db.VarChar(100)
   damage_amount                                                 Float
   actor_x                                                       Float
   actor_y                                                       Float
@@ -45,8 +45,8 @@ model elimination_events {
   game_time_seconds                                            Int?
   actor_id                                                     Int
   recipient_id                                                 Int
-  weapon_id                                                    String        @db.VarChar(100)
-  weapon_type                                                  String?       @db.VarChar(50)
+  weapon_id                                                    String        @db.VarChar(200)
+  weapon_type                                                  String?       @db.VarChar(100)
   actor_x                                                      Float
   actor_y                                                      Float
   actor_z                                                      Float
@@ -76,12 +76,11 @@ model event_windows {
   end_time              DateTime? @db.Timestamp(6)
   total_matches         Int
   processed_matches     Int
-  event_id              String?   @db.VarChar(100)
+  event_id              String    @db.VarChar(100)
   tournament_id         String?   @db.VarChar
   day_index             Int?
-  events                events?   @relation(fields: [event_id], references: [event_id], onDelete: Restrict, onUpdate: NoAction)
+  events                events    @relation(fields: [event_id], references: [event_id], onDelete: NoAction, onUpdate: NoAction)
   matches               matches[]
-  weapons               weapons[]
 }
 
 model match_players {
@@ -114,23 +113,40 @@ model matches {
   gamemode              String?                  @db.VarChar(100)
   duration              Unsupported("interval")?
   player_count          Int?
+  build_major           Int?
+  build_minor           Int?
   damage_dealt_events   damage_dealt_events[]
   elimination_events    elimination_events[]
   match_players         match_players[]
+  match_weapons         match_weapons[]
   event_windows         event_windows            @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model weapons {
-  id              Int           @id @default(autoincrement())
-  weapon_id       String        @db.VarChar(100)
-  weapon_type     String        @db.VarChar(50)
-  event_window_id String        @db.VarChar(100)
-  event_windows   event_windows @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
+  id                    String   @id @db.VarChar(200)
+  name                  String?  @db.VarChar(200)
+  description           String?  @db.VarChar(1000)
+  weapon_type           String?  @db.VarChar(100)
+  rarity                String?  @db.VarChar(50)
+  ammo                  String?  @db.VarChar(100)
+  gameplay_tags         Json?    @db.Json
+  image_key             String?  @db.VarChar(300)
+  small_image_key       String?  @db.VarChar(300)
+  image_url             String?  @db.VarChar(500)
+  small_image_url       String?  @db.VarChar(500)
+  dmg_pb                Float?
+  firing_rate           Float?
+  clip_size             Int?
+  reload_time           Float?
+  bullets_per_cartridge Int?
+  spread                Float?
+  spread_downsights     Float?
+  damage_zone_critical  Float?
+  first_seen_at         DateTime @db.Timestamp(6)
+  last_seen_at          DateTime @db.Timestamp(6)
 
-  @@unique([weapon_id, event_window_id], map: "idx_weapon_unique")
-  @@index([event_window_id], map: "idx_weapon_event_window")
   @@index([weapon_type], map: "idx_weapon_type")
-  @@index([weapon_id], map: "idx_weapon_weapon_id")
+  @@index([rarity], map: "idx_weapon_rarity")
 }
 
 model alembic_version {
@@ -139,8 +155,6 @@ model alembic_version {
 
 model events {
   event_id      String          @id @db.VarChar(100)
-  start_time    DateTime?       @db.Timestamp(6)
-  end_time      DateTime?       @db.Timestamp(6)
   region_code   String?         @db.VarChar(4)
   season_code   String?         @db.VarChar(4)
   image_key     String?         @db.VarChar
@@ -151,4 +165,28 @@ model tournaments {
   tournament_id String  @id @db.VarChar(100)
   title         String? @db.VarChar(200)
   season_code   String? @db.VarChar(4)
+}
+
+model match_weapons {
+  id          Int     @id @default(autoincrement())
+  match_id    String  @db.VarChar(50)
+  weapon_id   String  @db.VarChar(200)
+  weapon_type String? @db.VarChar(100)
+  matches     matches @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([weapon_id, match_id], map: "idx_match_weapon_unique")
+  @@index([match_id], map: "idx_match_weapon_match")
+  @@index([weapon_id], map: "idx_match_weapon_weapon")
+}
+
+model maps {
+  build_major    Int
+  build_minor    Int
+  mode_id        String   @db.VarChar(50)
+  image_key      String?  @db.VarChar(300)
+  definition_key String?  @db.VarChar(300)
+  synced_at      DateTime @db.Timestamp(6)
+
+  @@id([build_major, build_minor, mode_id])
+  @@index([build_major, build_minor], map: "idx_map_build")
 }

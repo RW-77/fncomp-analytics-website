@@ -17,11 +17,11 @@ import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import useImage from 'use-image'
 import npyjs from 'npyjs'
 import {
-  getReplayMapDefinition,
   getReplayWorldScale,
+  ReplayMapDefinition,
   projectReplayWorldToMapImage,
-  REPLAY_MAP_IMAGE_BY_ID,
 } from '@/lib/replay/map-projection'
+import type { MatchMetadata } from '@/lib/replay/match-data'
 
 // ---------------------------------------------------------------------------
 // YAW / DIRECTION TUNING
@@ -43,23 +43,6 @@ function yawToScreenDegrees(yawDeg: number): number {
   return YAW_SIGN * yawDeg + YAW_OFFSET_DEG
 }
 
-type MatchMetadata = {
-  schema_version?: number
-  match_id: string
-  hz: number
-  interval_seconds: number
-  // New fields written by the ETL into metadata.json:
-  total_frames?: number
-  total_chunks?: number
-  duration_seconds?: number
-  player_count?: number
-  // Mapping helpers. The new metadata only guarantees player_to_index, so we
-  // invert it ourselves when index_to_player is absent.
-  index_to_player?: Record<string, string>
-  player_to_index?: Record<string, number>
-  // Epic account id -> display username, written by the ETL timeline parser.
-  id_to_username?: Record<string, string>
-}
 
 type ChunkData = {
   data: Float32Array
@@ -206,7 +189,8 @@ function getZoneHudInfo(t: number, phases: ZonePhase[]): ZoneHudInfo | null {
 }
 
 type ReplayClientProps = {
-  mapId: string
+  mapDefinition: ReplayMapDefinition
+  mapImageUrl: string
   matchMetadata: MatchMetadata
   stageWidth?: number
   stageHeight?: number
@@ -375,12 +359,12 @@ function interpolatePlayerStates(
 
 function projectWorldToMap({
   state,
-  mapId,
+  mapDefinition,
   mapWidth,
   mapHeight,
 }: {
   state: PlayerState
-  mapId: string
+  mapDefinition: ReplayMapDefinition
   mapWidth: number
   mapHeight: number
 }) {
@@ -389,7 +373,7 @@ function projectWorldToMap({
     y: state.y,
     imageWidth: mapWidth,
     imageHeight: mapHeight,
-    mapId,
+    mapDefinition,
   })
 }
 
@@ -527,7 +511,8 @@ function ZoneHud({
 }
 
 function ReplayClient({
-  mapId,
+  mapDefinition,
+  mapImageUrl,
   matchMetadata,
   stageWidth = 1000,
   stageHeight = 700,
@@ -770,7 +755,7 @@ function ReplayClient({
     <div
       className="relative inline-flex flex-col overflow-hidden rounded-lg"
       style={{ backgroundColor: '#2f3136' }}
-      data-map-id={mapId}
+      data-map-id={mapDefinition.id}
     >
       {!currentChunk && (
         <div className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-1 text-sm text-white">
@@ -785,7 +770,8 @@ function ReplayClient({
       />
 
       <ReplayViewport
-        mapId={mapId}
+        mapDefinition={mapDefinition}
+        mapImageUrl={mapImageUrl}
         playerStates={playerStates}
         zone={zone}
         nextZone={nextZone}
@@ -940,25 +926,24 @@ function PlayerMarker({
 }
 
 function ReplayViewport({
-  mapId,
+  mapDefinition,
+  mapImageUrl,
   playerStates,
   zone,
   nextZone,
   stageWidth,
   stageHeight,
 }: {
-  mapId: string
+  mapDefinition: ReplayMapDefinition
+  mapImageUrl: string
   playerStates: PlayerState[]
   zone: ZoneCircle | null
   nextZone: ZoneCircle | null
   stageWidth: number
   stageHeight: number
 }) {
-  const effectiveMapId = REPLAY_MAP_IMAGE_BY_ID[mapId] ? mapId : 'br'
-  const mapImageSrc = REPLAY_MAP_IMAGE_BY_ID[effectiveMapId]
-  const replayMapDefinition = getReplayMapDefinition(effectiveMapId)
-  const replayPois = replayMapDefinition.pois ?? []
-  const [mapImage] = useImage(mapImageSrc)
+  const replayPois = mapDefinition.pois ?? []
+  const [mapImage] = useImage(mapImageUrl)
   const stageRef = useRef<KonvaStage>(null)
 
   // fitScale is derived — no effect needed. MIN_SCALE equals fitScale so the
@@ -1082,14 +1067,14 @@ function ReplayViewport({
         {zone && (() => {
           const worldScale = getReplayWorldScale({
             imageWidth: mapImage.width,
-            mapId: effectiveMapId,
+            mapDefinition,
           })
           const projected = projectReplayWorldToMapImage({
             x: zone.cx,
             y: zone.cy,
             imageWidth: mapImage.width,
             imageHeight: mapImage.height,
-            mapId: effectiveMapId,
+            mapDefinition,
           })
           const pixelRadius = zone.r * worldScale
 
@@ -1099,7 +1084,7 @@ function ReplayViewport({
                 y: nextZone.cy,
                 imageWidth: mapImage.width,
                 imageHeight: mapImage.height,
-                mapId: effectiveMapId,
+                mapDefinition,
               })
             : null
           const nextPixelRadius = nextZone ? nextZone.r * worldScale : 0
@@ -1158,7 +1143,7 @@ function ReplayViewport({
             y: poi.position.y,
             imageWidth: mapImage.width,
             imageHeight: mapImage.height,
-            mapId: effectiveMapId,
+            mapDefinition,
           })
 
           return (
@@ -1181,7 +1166,7 @@ function ReplayViewport({
           .map((player) => {
             const projected = projectWorldToMap({
               state: player,
-              mapId: effectiveMapId,
+              mapDefinition,
               mapWidth: mapImage.width,
               mapHeight: mapImage.height,
             })

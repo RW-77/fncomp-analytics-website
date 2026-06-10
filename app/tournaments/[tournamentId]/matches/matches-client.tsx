@@ -4,6 +4,8 @@ import { useState } from "react"
 import { X } from "lucide-react"
 
 import ReplayClient from "@/app/replay/replay-client"
+import type { ReplayMapDefinition } from "@/lib/replay/map-projection"
+import type { MatchMetadata } from "@/lib/replay/match-data"
 
 type Match = {
   match_id: string
@@ -12,12 +14,10 @@ type Match = {
   map_path: string | null
 }
 
-type MatchMetadata = {
-  match_id: string
-  hz: number
-  interval_seconds: number
-  index_to_player?: Record<string, string>
-  player_to_index?: Record<string, number>
+type ReplayPayload = {
+  metadata: MatchMetadata
+  mapDefinition: ReplayMapDefinition | null
+  mapImageUrl: string | null
 }
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -29,21 +29,21 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 
 export function MatchesClient({ matches }: { matches: Match[] }) {
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
-  const [metadata, setMetadata] = useState<MatchMetadata | null>(null)
+  const [payload, setPayload] = useState<ReplayPayload | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleMatchClick(matchId: string) {
     if (matchId === selectedMatchId) return
     setSelectedMatchId(matchId)
-    setMetadata(null)
+    setPayload(null)
     setError(null)
     setLoading(true)
     try {
       const res = await fetch(`/api/replay/${encodeURIComponent(matchId)}/metadata`)
       if (!res.ok) throw new Error("No replay data")
-      const data: MatchMetadata = await res.json()
-      setMetadata(data)
+      const data: ReplayPayload = await res.json()
+      setPayload(data)
     } catch {
       setError("No replay data available for this match.")
     } finally {
@@ -53,7 +53,7 @@ export function MatchesClient({ matches }: { matches: Match[] }) {
 
   function handleClose() {
     setSelectedMatchId(null)
-    setMetadata(null)
+    setPayload(null)
     setError(null)
     setLoading(false)
   }
@@ -166,14 +166,19 @@ export function MatchesClient({ matches }: { matches: Match[] }) {
               </div>
             ) : error ? (
               <p className="text-sm text-slate-500">{error}</p>
-            ) : metadata ? (
-              <ReplayClient
-                key={selectedMatchId}
-                mapId="br"
-                matchMetadata={metadata}
-                stageWidth={900}
-                stageHeight={600}
-              />
+            ) : payload ? (
+              payload.mapDefinition && payload.mapImageUrl ? (
+                <ReplayClient
+                  key={selectedMatchId}
+                  mapDefinition={payload.mapDefinition}
+                  mapImageUrl={payload.mapImageUrl}
+                  matchMetadata={payload.metadata}
+                  stageWidth={900}
+                  stageHeight={600}
+                />
+              ) : (
+                <p className="text-sm text-slate-500">Map assets not available for this match.</p>
+              )
             ) : null}
           </div>
         </div>

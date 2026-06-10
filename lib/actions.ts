@@ -5,6 +5,21 @@ import { PlayerRow } from "@/app/tournaments/[tournamentId]/columns"
 import { StatFilters, FilterCapabilities } from "@/lib/types"
 
 // ============================================================================
+// Replay
+// ============================================================================
+
+export async function getMatchBuildVersion(
+  matchId: string
+): Promise<{ build_major: number; build_minor: number } | null> {
+  const match = await prisma.matches.findUnique({
+    where: { match_id: matchId },
+    select: { build_major: true, build_minor: true },
+  })
+  if (!match || match.build_major === null || match.build_minor === null) return null
+  return { build_major: match.build_major, build_minor: match.build_minor }
+}
+
+// ============================================================================
 // Meta functions (passed by server component)
 // ============================================================================
 
