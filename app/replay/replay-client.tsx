@@ -75,7 +75,8 @@ type ZoneCircle = { cx: number; cy: number; r: number }
 type ZoneHudInfo = {
   // Zone number we're currently inside (1-indexed).
   currentZone: number
-  // Total zone circles in this match (= last phase.phase + 1).
+  // Total zone circles in this match. Phases are 1-indexed (phase 1..N),
+  // and the last phase's number IS the final zone, so this == last phase.phase.
   totalZones: number
   // True while the circle is actively shrinking.
   isShrinking: boolean
@@ -145,10 +146,10 @@ function getNextZoneAtTime(t: number, phases: ZonePhase[]): ZoneCircle | null {
 /**
  * Derives HUD info from the zone phases at time `t`.
  *
- * Zone numbering: each phase p describes the shrink from zone p.phase to the
- * next zone. So while we're in / waiting for phase p we're "inside zone p".
- * After the last phase completes there's no more shrinking; currentZone jumps
- * to totalZones (= last phase.phase + 1), which is the final safe circle.
+ * Zone numbering: phases are 1-indexed. Each phase p describes the shrink that
+ * forms zone p.phase, so while we're in / waiting for phase p we're "closing
+ * into zone p". The last phase's number is the final zone, so totalZones ==
+ * last phase.phase. After the final shrink completes currentZone rests there.
  *
  * Examples for phases = [{ phase:1, shrinkStart:60, shrinkEnd:120 }, { phase:2, … }]:
  *   t=30  → zone 1, NOT shrinking, countdown = 30 s until shrink starts
@@ -158,7 +159,7 @@ function getNextZoneAtTime(t: number, phases: ZonePhase[]): ZoneCircle | null {
 function getZoneHudInfo(t: number, phases: ZonePhase[]): ZoneHudInfo | null {
   if (!phases.length) return null
 
-  const totalZones = phases[phases.length - 1].phase + 1
+  const totalZones = phases[phases.length - 1].phase
 
   for (const p of phases) {
     if (t < p.shrinkStart) {

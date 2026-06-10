@@ -38,18 +38,19 @@ export function TournamentTabNav({ tournamentId }: { tournamentId: string }) {
   const currentSegment = pathname.split("/").at(-1)
 
   return (
-    <nav className="mb-5 flex gap-1 border-b border-white/8">
+    <nav className="mb-5 inline-flex gap-1 rounded-full border border-white/8 bg-white/[0.03] p-1">
       {TABS.map(({ label, segment }) => {
         const isActive = currentSegment === segment
         return (
           <Link
             key={segment}
             href={`/tournaments/${tournamentId}/${segment}${query}`}
+            aria-current={isActive ? "page" : undefined}
             className={[
-              "-mb-px inline-flex items-center border-b-2 px-1 pb-3 pt-1 text-sm font-medium transition-colors",
+              "rounded-full px-4 py-1.5 text-sm transition-colors",
               isActive
-                ? "border-sky-400 text-white"
-                : "border-transparent text-slate-400 hover:border-white/20 hover:text-slate-200",
+                ? "bg-sky-400 font-semibold text-slate-950 hover:bg-sky-300"
+                : "font-medium text-slate-400 hover:bg-white/[0.04] hover:text-slate-200",
             ].join(" ")}
           >
             {label}
