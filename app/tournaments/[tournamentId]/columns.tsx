@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils"
 export type PlayerRow = {
   player: string
   epicId: string
-} & Record<string, number | null>
+  damageRatio: number | null
+} & Record<string, number>
 
 function formatStatValue(value: number) {
   return Number.isInteger(value)

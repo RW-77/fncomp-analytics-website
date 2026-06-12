@@ -120,8 +120,8 @@ async function getHomepagePreview() {
     .slice(0, 4)
     .map((row) => ({
       player: row.player,
-      eliminations: (row.eliminations ?? 0).toLocaleString(),
-      damage: (row.damageDealt ?? 0).toLocaleString(),
+      eliminations: row.eliminations.toLocaleString(),
+      damage: row.damageDealt.toLocaleString(),
     }))
 
   const dateRange = formatDateRange(startTime, endTime)
