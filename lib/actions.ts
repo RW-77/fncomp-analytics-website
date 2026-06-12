@@ -161,6 +161,12 @@ const STAT_CAPABILITIES = {
     supportsTimeRange: true,
     supportsDistanceRange: true,
   } as FilterCapabilities,
+  shotsTaken: {
+    supportsMatches: true,
+    supportsWeaponTypes: false, // fire_weapon_events has weapon_id but not weapon_type
+    supportsTimeRange: true,
+    supportsDistanceRange: true,
+  } as FilterCapabilities,
   // Future stat types can be added here:
   // assists: {
   //   supportsMatches: true,
@@ -251,6 +257,34 @@ async function getDamageReceivedByPlayer(filters: StatFilters): Promise<Map<numb
   return map;
 }
 
+/**
+ * Gets shot counts (excluding harvesting tool swings) per player.
+ */
+async function getShotsTakenByPlayer(filters: StatFilters): Promise<Map<number, number>> {
+  const capabilities = STAT_CAPABILITIES.shotsTaken;
+  const whereClause = buildWhereClause(filters, capabilities);
+  whereClause.harvest = false;
+
+  const results = await prisma.fire_weapon_events.groupBy({
+    by: ["actor_id"],
+    where: whereClause,
+    _count: {
+      _all: true,
+    },
+  });
+
+  const map = new Map<number, number>();
+  for (const row of results) {
+    if (row._count && typeof row._count === 'object' && '_all' in row._count) {
+      const count = row._count._all;
+      if (typeof count === 'number') {
+        map.set(row.actor_id, count);
+      }
+    }
+  }
+  return map;
+}
+
 // ============================================================================
 // Main Aggregation Function
 // ============================================================================
@@ -263,10 +297,11 @@ export async function getFilteredStats(
   filters: StatFilters
 ): Promise<PlayerRow[]> {
   // Fetch all stat types in parallel
-  const [eliminationsMap, damageDealtMap, damageReceivedMap] = await Promise.all([
+  const [eliminationsMap, damageDealtMap, damageReceivedMap, shotsTakenMap] = await Promise.all([
     getEliminationsByPlayer(filters),
     getDamageDealtByPlayer(filters),
     getDamageReceivedByPlayer(filters),
+    getShotsTakenByPlayer(filters),
   ]);
 
   // Get all unique actor_ids from all stat queries
@@ -274,6 +309,7 @@ export async function getFilteredStats(
   eliminationsMap.forEach((_, actorId) => allActorIds.add(actorId));
   damageDealtMap.forEach((_, actorId) => allActorIds.add(actorId));
   damageReceivedMap.forEach((_, recipientId) => allActorIds.add(recipientId));
+  shotsTakenMap.forEach((_, actorId) => allActorIds.add(actorId));
 
   // Get player information for all actors
   // Note: We don't filter by match_id here because we already have the specific actor_ids
@@ -302,71 +338,62 @@ export async function getFilteredStats(
   // Aggregate all stats into PlayerRow format
   const playerRows = new Map<string, PlayerRow>();
 
+  function getOrCreateRow(epicId: string, displayName: string): PlayerRow {
+    if (!playerRows.has(epicId)) {
+      playerRows.set(epicId, {
+        player: displayName,
+        epicId,
+        eliminations: 0,
+        damageDealt: 0,
+        damageReceived: 0,
+        damageRatio: null,
+        shotsTaken: 0,
+      } as unknown as PlayerRow);
+    }
+    return playerRows.get(epicId)!;
+  }
+
   // Process eliminations
-  // Note: A player can have multiple actor_ids (one per match), so we need to SUM stats
   eliminationsMap.forEach((count, actorId) => {
     const playerInfo = playerInfoMap.get(actorId);
     if (playerInfo) {
-      const key = playerInfo.epicId;
-      if (!playerRows.has(key)) {
-        const row = {
-          player: playerInfo.displayName,
-          epicId: playerInfo.epicId,
-          eliminations: 0,
-          damageDealt: 0,
-          damageReceived: 0,
-        } as unknown as PlayerRow;
-        playerRows.set(key, row);
-      }
-      const row = playerRows.get(key)!;
-      row.eliminations += count; // Sum, don't overwrite
+      getOrCreateRow(playerInfo.epicId, playerInfo.displayName).eliminations += count;
     }
   });
 
   // Process damage dealt
-  // Note: A player can have multiple actor_ids (one per match), so we need to SUM stats
   damageDealtMap.forEach((damage, actorId) => {
     const playerInfo = playerInfoMap.get(actorId);
     if (playerInfo) {
-      const key = playerInfo.epicId;
-      if (!playerRows.has(key)) {
-        const row = {
-          player: playerInfo.displayName,
-          epicId: playerInfo.epicId,
-          eliminations: 0,
-          damageDealt: 0,
-          damageReceived: 0,
-        } as unknown as PlayerRow;
-        playerRows.set(key, row);
-      }
-      const row = playerRows.get(key)!;
-      row.damageDealt += Math.round(damage); // Sum, don't overwrite
+      getOrCreateRow(playerInfo.epicId, playerInfo.displayName).damageDealt += Math.round(damage);
     }
   });
 
   // Process damage received
-  // Note: A player can have multiple recipient_ids (one per match), so we need to SUM stats
   damageReceivedMap.forEach((damage, recipientId) => {
     const playerInfo = playerInfoMap.get(recipientId);
     if (playerInfo) {
-      const key = playerInfo.epicId;
-      if (!playerRows.has(key)) {
-        const row = {
-          player: playerInfo.displayName,
-          epicId: playerInfo.epicId,
-          eliminations: 0,
-          damageDealt: 0,
-          damageReceived: 0,
-        } as unknown as PlayerRow;
-        playerRows.set(key, row);
-      }
-      const row = playerRows.get(key)!;
-      row.damageReceived += Math.round(damage); // Sum, don't overwrite
+      getOrCreateRow(playerInfo.epicId, playerInfo.displayName).damageReceived += Math.round(damage);
     }
   });
 
+  // Process shots taken
+  shotsTakenMap.forEach((count, actorId) => {
+    const playerInfo = playerInfoMap.get(actorId);
+    if (playerInfo) {
+      getOrCreateRow(playerInfo.epicId, playerInfo.displayName).shotsTaken += count;
+    }
+  });
+
+  // Compute derived stats
+  for (const row of playerRows.values()) {
+    const dealt = row.damageDealt as number;
+    const received = row.damageReceived as number;
+    row.damageRatio = received > 0 ? Math.round((dealt / received) * 100) / 100 : null;
+  }
+
   // Convert to array and sort by player name
-  return Array.from(playerRows.values()).sort((a, b) => 
+  return Array.from(playerRows.values()).sort((a, b) =>
     a.player.localeCompare(b.player)
   );
 }

@@ -11,7 +11,7 @@ model damage_dealt_events {
   id                                                            Int            @id @default(autoincrement())
   match_id                                                      String         @db.VarChar(50)
   timestamp                                                     DateTime       @db.Timestamp(6)
-  game_time_seconds                                             Int?
+  game_time_seconds                                             Float?
   actor_id                                                      Int?
   recipient_id                                                  Int?
   weapon_id                                                     String         @db.VarChar(200)
@@ -42,7 +42,7 @@ model elimination_events {
   id                                                           Int           @id @default(autoincrement())
   match_id                                                     String        @db.VarChar(50)
   timestamp                                                    DateTime      @db.Timestamp(6)
-  game_time_seconds                                            Int?
+  game_time_seconds                                            Float?
   actor_id                                                     Int
   recipient_id                                                 Int
   weapon_id                                                    String        @db.VarChar(200)
@@ -92,6 +92,8 @@ model match_players {
   damage_dealt_events_damage_dealt_events_recipient_idTomatch_players damage_dealt_events[] @relation("damage_dealt_events_recipient_idTomatch_players")
   elimination_events_elimination_events_actor_idTomatch_players       elimination_events[]  @relation("elimination_events_actor_idTomatch_players")
   elimination_events_elimination_events_recipient_idTomatch_players   elimination_events[]  @relation("elimination_events_recipient_idTomatch_players")
+  fire_weapon_events_fire_weapon_events_actor_idTomatch_players       fire_weapon_events[]  @relation("fire_weapon_events_actor_idTomatch_players")
+  fire_weapon_events_fire_weapon_events_hit_player_idTomatch_players  fire_weapon_events[]  @relation("fire_weapon_events_hit_player_idTomatch_players")
   matches                                                             matches               @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([epic_id, match_id], map: "idx_player_epic_match")
@@ -117,6 +119,7 @@ model matches {
   build_minor           Int?
   damage_dealt_events   damage_dealt_events[]
   elimination_events    elimination_events[]
+  fire_weapon_events    fire_weapon_events[]
   match_players         match_players[]
   match_weapons         match_weapons[]
   event_windows         event_windows            @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
@@ -165,6 +168,47 @@ model tournaments {
   tournament_id String  @id @db.VarChar(100)
   title         String? @db.VarChar(200)
   season_code   String? @db.VarChar(4)
+}
+
+model fire_weapon_events {
+  id                                                            Int            @id @default(autoincrement())
+  match_id                                                      String         @db.VarChar(50)
+  timestamp                                                     DateTime       @db.Timestamp(6)
+  game_time_seconds                                             Float?
+  actor_id                                                      Int
+  weapon_id                                                     String         @db.VarChar(200)
+  zone                                                          Int?
+  damage                                                        Float
+  actual_damage                                                 Float
+  harvest                                                       Boolean
+  hit_player                                                    Boolean
+  hit_critical                                                  Boolean
+  hit_player_build                                              Boolean
+  hit_fatal                                                     Boolean
+  hit_shield                                                    Boolean
+  hit_ballistic                                                 Boolean
+  destroyed_shield                                              Boolean
+  hit_player_id                                                 Int?
+  hit_result                                                    String?        @db.VarChar(50)
+  hit_actor_id                                                  Int?
+  end_x                                                         Float?
+  end_y                                                         Float?
+  end_z                                                         Float?
+  item_entry_guid                                               String?        @db.VarChar(100)
+  actor_x                                                       Float?
+  actor_y                                                       Float?
+  actor_z                                                       Float?
+  distance                                                      Float?
+  match_players_fire_weapon_events_actor_idTomatch_players      match_players  @relation("fire_weapon_events_actor_idTomatch_players", fields: [actor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_fire_weapon_events_hit_player_idTomatch_players match_players? @relation("fire_weapon_events_hit_player_idTomatch_players", fields: [hit_player_id], references: [id], onUpdate: NoAction)
+  matches                                                       matches        @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([actor_id], map: "idx_fwe_actor")
+  @@index([hit_player_id], map: "idx_fwe_hit_player")
+  @@index([match_id], map: "idx_fwe_match")
+  @@index([game_time_seconds], map: "idx_fwe_time")
+  @@index([weapon_id], map: "idx_fwe_weapon")
+  @@index([zone], map: "idx_fwe_zone")
 }
 
 model match_weapons {

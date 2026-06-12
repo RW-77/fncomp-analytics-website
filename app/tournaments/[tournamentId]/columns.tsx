@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 export type PlayerRow = {
   player: string
   epicId: string
-} & Record<string, number>
+} & Record<string, number | null>
 
 function formatStatValue(value: number) {
   return Number.isInteger(value)
@@ -24,7 +24,7 @@ function SortableHeader({
 }: {
   label: string
   onClick: () => void
-  align?: "left" | "right"
+  align?: "left" | "center" | "right"
 }) {
   return (
     <Button
@@ -32,7 +32,9 @@ function SortableHeader({
       onClick={onClick}
       className={cn(
         "h-8 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 hover:bg-transparent hover:text-white",
-        align === "right" ? "ml-auto w-full justify-end" : "-ml-2 justify-start"
+        align === "right" ? "ml-auto w-full justify-end" :
+        align === "center" ? "w-full justify-center" :
+        "-ml-2 justify-start"
       )}
     >
       {label}
@@ -60,13 +62,13 @@ export const columns: ColumnDef<PlayerRow>[] = [
     accessorKey: "eliminations",
     header: ({ column }) => (
       <SortableHeader
-        label="Eliminations"
-        align="right"
+        label="Elims"
+        align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />
     ),
     cell: ({ getValue }) => (
-      <div className="text-right font-medium text-slate-200 tabular-nums">
+      <div className="text-center font-medium text-slate-200 tabular-nums">
         {formatStatValue(getValue<number>())}
       </div>
     ),
@@ -75,13 +77,13 @@ export const columns: ColumnDef<PlayerRow>[] = [
     accessorKey: "damageDealt",
     header: ({ column }) => (
       <SortableHeader
-        label="Damage Dealt"
-        align="right"
+        label="DMG Dealt"
+        align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />
     ),
     cell: ({ getValue }) => (
-      <div className="text-right font-medium text-slate-200 tabular-nums">
+      <div className="text-center font-medium text-slate-200 tabular-nums">
         {formatStatValue(getValue<number>())}
       </div>
     ),
@@ -90,13 +92,46 @@ export const columns: ColumnDef<PlayerRow>[] = [
     accessorKey: "damageReceived",
     header: ({ column }) => (
       <SortableHeader
-        label="Damage Received"
-        align="right"
+        label="DMG Received"
+        align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />
     ),
     cell: ({ getValue }) => (
-      <div className="text-right font-medium text-slate-200 tabular-nums">
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "damageRatio",
+    header: ({ column }) => (
+      <SortableHeader
+        label="Dmg Ratio"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => {
+      const value = getValue<number | null>()
+      return (
+        <div className="text-center font-medium text-slate-200 tabular-nums">
+          {value === null ? <span className="text-slate-500">—</span> : value.toFixed(2)}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: "shotsTaken",
+    header: ({ column }) => (
+      <SortableHeader
+        label="Shots"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
         {formatStatValue(getValue<number>())}
       </div>
     ),
