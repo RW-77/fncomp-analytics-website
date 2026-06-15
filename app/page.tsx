@@ -10,6 +10,8 @@ import {
   getTournamentDisplayTitle,
 } from "@/lib/tournaments"
 
+export const dynamic = "force-dynamic"
+
 const featureCards = [
   {
     title: "Tournament coverage",
