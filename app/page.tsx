@@ -10,6 +10,8 @@ import {
   getTournamentDisplayTitle,
 } from "@/lib/tournaments"
 
+import { cacheLife, cacheTag } from "next/cache"
+
 
 const featureCards = [
   {
@@ -53,6 +55,9 @@ function formatDateRange(startTime: Date | null, endTime: Date | null) {
  * and top players across all of its event_windows.
  */
 async function getHomepagePreview() {
+  "use cache"
+  cacheLife("max")
+  cacheTag("preview-stats")
   const latestEventWindow = await prisma.event_windows.findFirst({
     where: { tournament_id: { not: null }, start_time: { not: null } },
     orderBy: { start_time: "desc" },

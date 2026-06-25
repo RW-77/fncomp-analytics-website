@@ -12,7 +12,6 @@ import {
   resolveRegion,
 } from "@/lib/tournaments"
 
-export const dynamic = "force-dynamic"
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
