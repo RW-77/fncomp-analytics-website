@@ -10,9 +10,16 @@ export type PlayerRow = {
   player: string
   epicId: string
   damageRatio: number | null
+  accuracy: number | null
 } & Record<string, number>
 
-function formatStatValue(value: number) {
+function formatStatValue(value: number | null | undefined) {
+  // Guard against a column whose backing field isn't populated yet — the
+  // `Record<string, number>` cast on PlayerRow lets that slip past the compiler,
+  // so render a muted dash instead of crashing the whole table.
+  if (value == null || Number.isNaN(value)) {
+    return <span className="text-slate-500">—</span>
+  }
   return Number.isInteger(value)
     ? value.toLocaleString()
     : value.toLocaleString(undefined, { maximumFractionDigits: 1 })
@@ -127,6 +134,99 @@ export const columns: ColumnDef<PlayerRow>[] = [
     header: ({ column }) => (
       <SortableHeader
         label="Shots"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "damageContribution",
+    header: ({ column }) => (
+      <SortableHeader
+        label="DMG Contrib"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "assists",
+    header: ({ column }) => (
+      <SortableHeader
+        label="Assists"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "shotAttempts",
+    header: ({ column }) => (
+      <SortableHeader
+        label="Shot Att"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "accuracy",
+    header: ({ column }) => (
+      <SortableHeader
+        label="Accuracy"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => {
+      const value = getValue<number | null>()
+      return (
+        <div className="text-center font-medium text-slate-200 tabular-nums">
+          {value === null ? <span className="text-slate-500">—</span> : `${value.toFixed(1)}%`}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: "rebooted",
+    header: ({ column }) => (
+      <SortableHeader
+        label="Rebooted"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "rebootedOthers",
+    header: ({ column }) => (
+      <SortableHeader
+        label="Rebooted Others"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />

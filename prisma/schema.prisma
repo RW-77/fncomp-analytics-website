@@ -84,45 +84,60 @@ model event_windows {
 }
 
 model match_players {
-  id                                                                  Int                   @id @default(autoincrement())
-  epic_id                                                             String                @db.VarChar(100)
-  epic_username                                                       String                @db.VarChar(100)
-  match_id                                                            String                @db.VarChar(50)
-  damage_dealt_events_damage_dealt_events_actor_idTomatch_players     damage_dealt_events[] @relation("damage_dealt_events_actor_idTomatch_players")
-  damage_dealt_events_damage_dealt_events_recipient_idTomatch_players damage_dealt_events[] @relation("damage_dealt_events_recipient_idTomatch_players")
-  elimination_events_elimination_events_actor_idTomatch_players       elimination_events[]  @relation("elimination_events_actor_idTomatch_players")
-  elimination_events_elimination_events_recipient_idTomatch_players   elimination_events[]  @relation("elimination_events_recipient_idTomatch_players")
-  fire_weapon_events_fire_weapon_events_actor_idTomatch_players       fire_weapon_events[]  @relation("fire_weapon_events_actor_idTomatch_players")
-  fire_weapon_events_fire_weapon_events_hit_player_idTomatch_players  fire_weapon_events[]  @relation("fire_weapon_events_hit_player_idTomatch_players")
-  matches                                                             matches               @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  id                                                                             Int                          @id @default(autoincrement())
+  epic_id                                                                        String                       @db.VarChar(100)
+  epic_username                                                                  String                       @db.VarChar(100)
+  match_id                                                                       String                       @db.VarChar(50)
+  assist_events_assist_events_actor_idTomatch_players                            assist_events[]              @relation("assist_events_actor_idTomatch_players")
+  assist_events_assist_events_killer_idTomatch_players                           assist_events[]              @relation("assist_events_killer_idTomatch_players")
+  assist_events_assist_events_victim_idTomatch_players                           assist_events[]              @relation("assist_events_victim_idTomatch_players")
+  damage_contribution_events_damage_contribution_events_actor_idTomatch_players  damage_contribution_events[] @relation("damage_contribution_events_actor_idTomatch_players")
+  damage_contribution_events_damage_contribution_events_killer_idTomatch_players damage_contribution_events[] @relation("damage_contribution_events_killer_idTomatch_players")
+  damage_contribution_events_damage_contribution_events_victim_idTomatch_players damage_contribution_events[] @relation("damage_contribution_events_victim_idTomatch_players")
+  damage_dealt_events_damage_dealt_events_actor_idTomatch_players                damage_dealt_events[]        @relation("damage_dealt_events_actor_idTomatch_players")
+  damage_dealt_events_damage_dealt_events_recipient_idTomatch_players            damage_dealt_events[]        @relation("damage_dealt_events_recipient_idTomatch_players")
+  elimination_events_elimination_events_actor_idTomatch_players                  elimination_events[]         @relation("elimination_events_actor_idTomatch_players")
+  elimination_events_elimination_events_recipient_idTomatch_players              elimination_events[]         @relation("elimination_events_recipient_idTomatch_players")
+  fire_weapon_events_fire_weapon_events_actor_idTomatch_players                  fire_weapon_events[]         @relation("fire_weapon_events_actor_idTomatch_players")
+  fire_weapon_events_fire_weapon_events_hit_player_idTomatch_players             fire_weapon_events[]         @relation("fire_weapon_events_hit_player_idTomatch_players")
+  matches                                                                        matches                      @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  reboot_events_reboot_events_rebooted_idTomatch_players                         reboot_events[]              @relation("reboot_events_rebooted_idTomatch_players")
+  reboot_events_reboot_events_rebooter_idTomatch_players                         reboot_events[]              @relation("reboot_events_rebooter_idTomatch_players")
+  shot_attempt_events_shot_attempt_events_actor_idTomatch_players                shot_attempt_events[]        @relation("shot_attempt_events_actor_idTomatch_players")
+  shot_attempt_events_shot_attempt_events_recipient_idTomatch_players            shot_attempt_events[]        @relation("shot_attempt_events_recipient_idTomatch_players")
 
   @@unique([epic_id, match_id], map: "idx_player_epic_match")
   @@index([match_id], map: "idx_player_match")
 }
 
 model matches {
-  match_id              String                   @id @db.VarChar(50)
-  event_window_id       String                   @db.VarChar(100)
-  status                String                   @db.VarChar(32)
-  created_at            DateTime                 @db.Timestamp(6)
-  last_processing_start DateTime?                @db.Timestamp(6)
-  last_processed        DateTime?                @db.Timestamp(6)
-  last_failed           DateTime?                @db.Timestamp(6)
-  event_id              String?                  @db.VarChar(100)
-  map_path              String?                  @db.VarChar
-  start_time            DateTime?                @db.Timestamp(6)
-  end_time              DateTime?                @db.Timestamp(6)
-  gamemode              String?                  @db.VarChar(100)
-  duration              Unsupported("interval")?
-  player_count          Int?
-  build_major           Int?
-  build_minor           Int?
-  damage_dealt_events   damage_dealt_events[]
-  elimination_events    elimination_events[]
-  fire_weapon_events    fire_weapon_events[]
-  match_players         match_players[]
-  match_weapons         match_weapons[]
-  event_windows         event_windows            @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
+  match_id                   String                       @id @db.VarChar(50)
+  event_window_id            String                       @db.VarChar(100)
+  status                     String                       @db.VarChar(32)
+  created_at                 DateTime                     @db.Timestamp(6)
+  last_processing_start      DateTime?                    @db.Timestamp(6)
+  last_processed             DateTime?                    @db.Timestamp(6)
+  last_failed                DateTime?                    @db.Timestamp(6)
+  event_id                   String?                      @db.VarChar(100)
+  map_path                   String?                      @db.VarChar
+  start_time                 DateTime?                    @db.Timestamp(6)
+  end_time                   DateTime?                    @db.Timestamp(6)
+  gamemode                   String?                      @db.VarChar(100)
+  duration                   Unsupported("interval")?
+  player_count               Int?
+  build_major                Int?
+  build_minor                Int?
+  assist_events              assist_events[]
+  damage_contribution_events damage_contribution_events[]
+  damage_dealt_events        damage_dealt_events[]
+  elimination_events         elimination_events[]
+  fire_weapon_events         fire_weapon_events[]
+  match_players              match_players[]
+  match_stat_status          match_stat_status[]
+  match_weapons              match_weapons[]
+  event_windows              event_windows                @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
+  reboot_events              reboot_events[]
+  shot_attempt_events        shot_attempt_events[]
 }
 
 model weapons {
@@ -233,4 +248,96 @@ model maps {
 
   @@id([build_major, build_minor, mode_id])
   @@index([build_major, build_minor], map: "idx_map_build")
+}
+
+model damage_contribution_events {
+  id                                                                Int           @id @default(autoincrement())
+  match_id                                                          String        @db.VarChar(50)
+  timestamp                                                         DateTime      @db.Timestamp(6)
+  game_time_seconds                                                 Float?
+  actor_id                                                          Int
+  victim_id                                                         Int
+  killer_id                                                         Int
+  damage_amount                                                     Float
+  match_players_damage_contribution_events_actor_idTomatch_players  match_players @relation("damage_contribution_events_actor_idTomatch_players", fields: [actor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_damage_contribution_events_killer_idTomatch_players match_players @relation("damage_contribution_events_killer_idTomatch_players", fields: [killer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches                                                           matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_damage_contribution_events_victim_idTomatch_players match_players @relation("damage_contribution_events_victim_idTomatch_players", fields: [victim_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([actor_id], map: "idx_dce_actor")
+  @@index([killer_id], map: "idx_dce_killer")
+  @@index([match_id], map: "idx_dce_match")
+  @@index([game_time_seconds], map: "idx_dce_time")
+  @@index([victim_id], map: "idx_dce_victim")
+}
+
+model assist_events {
+  id                                                   Int           @id @default(autoincrement())
+  match_id                                             String        @db.VarChar(50)
+  timestamp                                            DateTime      @db.Timestamp(6)
+  game_time_seconds                                    Float?
+  actor_id                                             Int
+  victim_id                                            Int
+  killer_id                                            Int
+  match_players_assist_events_actor_idTomatch_players  match_players @relation("assist_events_actor_idTomatch_players", fields: [actor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_assist_events_killer_idTomatch_players match_players @relation("assist_events_killer_idTomatch_players", fields: [killer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches                                              matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_assist_events_victim_idTomatch_players match_players @relation("assist_events_victim_idTomatch_players", fields: [victim_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([actor_id], map: "idx_assist_actor")
+  @@index([killer_id], map: "idx_assist_killer")
+  @@index([match_id], map: "idx_assist_match")
+  @@index([game_time_seconds], map: "idx_assist_time")
+  @@index([victim_id], map: "idx_assist_victim")
+}
+
+model shot_attempt_events {
+  id                                                            Int           @id @default(autoincrement())
+  match_id                                                      String        @db.VarChar(50)
+  timestamp                                                     DateTime      @db.Timestamp(6)
+  game_time_seconds                                             Float?
+  actor_id                                                      Int
+  recipient_id                                                  Int
+  weapon_id                                                     String?       @db.VarChar(200)
+  direct_hit                                                    Boolean
+  passing_distance                                              Float
+  match_players_shot_attempt_events_actor_idTomatch_players     match_players @relation("shot_attempt_events_actor_idTomatch_players", fields: [actor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches                                                       matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_shot_attempt_events_recipient_idTomatch_players match_players @relation("shot_attempt_events_recipient_idTomatch_players", fields: [recipient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([actor_id], map: "idx_shotatt_actor")
+  @@index([match_id], map: "idx_shotatt_match")
+  @@index([recipient_id], map: "idx_shotatt_recipient")
+  @@index([game_time_seconds], map: "idx_shotatt_time")
+  @@index([weapon_id], map: "idx_shotatt_weapon")
+}
+
+model match_stat_status {
+  match_id       String    @db.VarChar(50)
+  stat_name      String    @db.VarChar(50)
+  parser_version Int?
+  status         String    @db.VarChar(32)
+  last_processed DateTime? @db.Timestamp(6)
+  last_failed    DateTime? @db.Timestamp(6)
+  matches        matches   @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([match_id, stat_name])
+  @@index([stat_name], map: "idx_mss_stat")
+}
+
+model reboot_events {
+  id                                                     Int            @id @default(autoincrement())
+  match_id                                               String         @db.VarChar(50)
+  timestamp                                              DateTime       @db.Timestamp(6)
+  game_time_seconds                                      Float?
+  rebooted_id                                            Int
+  rebooter_id                                            Int?
+  matches                                                matches        @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_reboot_events_rebooted_idTomatch_players match_players  @relation("reboot_events_rebooted_idTomatch_players", fields: [rebooted_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_reboot_events_rebooter_idTomatch_players match_players? @relation("reboot_events_rebooter_idTomatch_players", fields: [rebooter_id], references: [id], onUpdate: NoAction)
+
+  @@index([match_id], map: "idx_reboot_match")
+  @@index([rebooted_id], map: "idx_reboot_rebooted")
+  @@index([rebooter_id], map: "idx_reboot_rebooter")
+  @@index([game_time_seconds], map: "idx_reboot_time")
 }
