@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 
-import { getFilteredStats, getMatches, getWeaponIds } from "@/lib/actions"
+import { computeFilteredStats, getMatches, getWeaponIds } from "@/lib/stats"
 import { prisma } from "@/lib/prisma"
 import { StatFilters } from "@/lib/types"
 import {
@@ -100,7 +100,7 @@ export default async function PlayersPage({ params, searchParams }: PageProps) {
     distanceRange: [0, 400],
     timeRange: [0, 30],
   }
-  const initialData = await getFilteredStats(initialFilters)
+  const initialData = await computeFilteredStats(initialFilters)
 
   return (
     <TournamentStatsClient
