@@ -38,7 +38,7 @@ export function TournamentTabNav({ tournamentId }: { tournamentId: string }) {
   const currentSegment = pathname.split("/").at(-1)
 
   return (
-    <nav className="mb-5 inline-flex gap-1 rounded-full border border-white/8 bg-white/[0.03] p-1">
+    <nav className="mb-4 inline-flex items-center gap-1.5 rounded-xl bg-[#141d30] p-1.5">
       {TABS.map(({ label, segment }) => {
         const isActive = currentSegment === segment
         return (
@@ -47,10 +47,10 @@ export function TournamentTabNav({ tournamentId }: { tournamentId: string }) {
             href={`/tournaments/${tournamentId}/${segment}${query}`}
             aria-current={isActive ? "page" : undefined}
             className={[
-              "rounded-full px-4 py-1.5 text-sm transition-colors",
+              "rounded-lg px-7 py-3 text-base transition-colors",
               isActive
-                ? "bg-sky-400 font-semibold text-slate-950 hover:bg-sky-300"
-                : "font-medium text-slate-400 hover:bg-white/[0.04] hover:text-slate-200",
+                ? "bg-[#30425f] font-semibold text-white"
+                : "font-medium text-slate-400 hover:bg-white/[0.05] hover:text-slate-200",
             ].join(" ")}
           >
             {label}
@@ -96,7 +96,7 @@ export function RegionDayToggles({
   if (!showRegionToggle && !showDayToggle) return null
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/8 pt-3">
+    <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
       {showRegionToggle && (
         <div className="flex flex-wrap gap-1.5">
           {availableRegions.map((region) => {
@@ -108,8 +108,8 @@ export function RegionDayToggles({
                 variant={isActive ? "default" : "outline"}
                 className={
                   isActive
-                    ? "h-7 rounded-full bg-sky-400 px-3 text-xs font-semibold text-slate-950 hover:bg-sky-300"
-                    : "h-7 rounded-full border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-300 hover:bg-white/[0.06]"
+                    ? "h-7 rounded-md bg-white/[0.10] px-3 text-xs font-semibold text-white hover:bg-white/[0.14]"
+                    : "h-7 rounded-md px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
                 }
               >
                 <Link href={buildUrl(region, null)}>{region}</Link>
@@ -120,7 +120,7 @@ export function RegionDayToggles({
       )}
 
       {showRegionToggle && showDayToggle && (
-        <div className="h-4 w-px bg-white/10" aria-hidden />
+        <div className="h-4 w-px bg-white/[0.08]" aria-hidden />
       )}
 
       {showDayToggle && (
@@ -134,8 +134,8 @@ export function RegionDayToggles({
                 variant={isActive ? "default" : "outline"}
                 className={
                   isActive
-                    ? "h-7 rounded-full bg-sky-400 px-3 text-xs font-semibold text-slate-950 hover:bg-sky-300"
-                    : "h-7 rounded-full border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-300 hover:bg-white/[0.06]"
+                    ? "h-7 rounded-md bg-white/[0.10] px-3 text-xs font-semibold text-white hover:bg-white/[0.14]"
+                    : "h-7 rounded-md px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
                 }
               >
                 <Link href={buildUrl(effectiveRegion, day)}>Day {day}</Link>
@@ -147,8 +147,8 @@ export function RegionDayToggles({
             variant={effectiveDay === CUMULATIVE_DAY ? "default" : "outline"}
             className={
               effectiveDay === CUMULATIVE_DAY
-                ? "h-7 rounded-full bg-sky-400 px-3 text-xs font-semibold text-slate-950 hover:bg-sky-300"
-                : "h-7 rounded-full border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-slate-300 hover:bg-white/[0.06]"
+                ? "h-7 rounded-md bg-white/[0.10] px-3 text-xs font-semibold text-white hover:bg-white/[0.14]"
+                : "h-7 rounded-md px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
             }
           >
             <Link href={buildUrl(effectiveRegion, CUMULATIVE_DAY)}>All days</Link>
@@ -160,7 +160,7 @@ export function RegionDayToggles({
 }
 
 // ---------------------------------------------------------------------------
-// Stat cards (match count + date range) — reactive to region/day URL params
+// Metadata line (match count + date range) — reactive to region/day URL params
 // ---------------------------------------------------------------------------
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -176,7 +176,7 @@ function formatDateRange(startTime: Date | null, endTime: Date | null) {
   return dateFormatter.format(startTime ?? endTime ?? new Date())
 }
 
-export function TournamentStatCards({
+export function TournamentMeta({
   eventWindows,
 }: {
   eventWindows: SerializedEventWindow[]
@@ -211,17 +211,14 @@ export function TournamentStatCards({
     : null
 
   return (
-    <div className="flex shrink-0 gap-3">
-      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Matches</div>
-        <div className="mt-0.5 text-lg font-semibold text-white tabular-nums">{totalMatches}</div>
-      </div>
-      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Dates</div>
-        <div className="mt-0.5 text-sm font-medium text-slate-200">
-          {formatDateRange(startTime, endTime)}
-        </div>
-      </div>
+    <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-slate-400">
+      <span>
+        <span className="font-semibold text-slate-200 tabular-nums">{totalMatches}</span> matches
+      </span>
+      <span aria-hidden className="text-slate-600">
+        ·
+      </span>
+      <span className="tabular-nums">{formatDateRange(startTime, endTime)}</span>
     </div>
   )
 }
