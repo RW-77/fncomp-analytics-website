@@ -12,6 +12,9 @@ import {
   resolveRegion,
 } from "@/lib/tournaments"
 
+// Statically generate the list and regenerate at most once an hour (ISR). The
+// set of tournaments only changes on ingestion, not per request.
+export const revalidate = 3600
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
