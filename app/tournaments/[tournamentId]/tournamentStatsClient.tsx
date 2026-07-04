@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Filter } from "lucide-react"
 import { useDebouncedCallback } from "use-debounce"
 
 import {
@@ -12,11 +12,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Slider } from "@/components/ui/slider"
+import * as SliderPrimitive from "@radix-ui/react-slider"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/common/data-table"
 import { getFilteredStats } from "@/lib/actions"
-import { cn } from "@/lib/utils"
 
 import { columns, PlayerRow } from "./columns"
 
@@ -57,24 +56,22 @@ export function DropdownMenuCheckboxes({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="h-auto w-full justify-between rounded-xl border-white/10 bg-[#09111d] px-4 py-3 text-left shadow-none hover:bg-[#101a2d]"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border-0 bg-[#141d30] px-4 shadow-none hover:bg-[#1c2942] dark:bg-[#141d30] dark:hover:bg-[#1c2942]"
         >
-          <span className="min-w-0">
-            <span className="block text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
-              {title}
-            </span>
-            <span className="mt-1 block truncate text-sm font-medium text-slate-100">
-              {formatFilterCount(selectedIds.length, items.length)}
-            </span>
-          </span>
+          <Filter className="size-3.5 shrink-0 text-slate-500" />
+          <span className="text-sm font-medium text-slate-200">{title}</span>
           <ChevronDown className="size-4 shrink-0 text-slate-500" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-72 border-white/10 bg-[#0c1320] text-slate-100">
-        <DropdownMenuLabel className="text-xs uppercase tracking-[0.18em] text-slate-400">
-          {title}
+      {/* Opens as an overlay so expanding the list never grows the page height. */}
+      <DropdownMenuContent
+        align="start"
+        className="w-72 border-white/[0.08] bg-[#1f2c49] text-slate-100"
+      >
+        <DropdownMenuLabel className="text-xs font-medium text-slate-300">
+          {formatFilterCount(selectedIds.length, items.length)}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-white/8" />
+        <DropdownMenuSeparator className="bg-white/[0.08]" />
         {items.map((item) => (
           <DropdownMenuCheckboxItem
             key={item.id}
@@ -107,37 +104,41 @@ export function SliderRange({
   step?: number
   unit?: string
 }) {
-  const formatValue = (amount: number) => (unit ? `${amount} ${unit}` : `${amount}`)
-
   return (
-    <div className="w-full space-y-3 rounded-xl border border-white/8 bg-[#09111d] px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
-            {label}
-          </div>
-          <div className="mt-1 text-sm text-slate-300">
-            {formatValue(min)} to {formatValue(max)}
-          </div>
-        </div>
-        <div className="rounded-md border border-sky-400/15 bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-200 tabular-nums">
-          {formatValue(value[0])} - {formatValue(value[1])}
-        </div>
+    <div>
+      {/* Compact caption — kept small so the slider below is the dominant element. */}
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <span className="text-xs font-medium text-slate-300">{label}</span>
+        <span className="text-xs tabular-nums text-slate-400">
+          {value[0]}–{value[1]}
+          {unit ? ` ${unit}` : ""}
+        </span>
       </div>
 
-      <Slider
+      {/* Rectangular (rounded-lg) track to match the other filter controls; tall
+          so the slider dominates. Sky fill = selected range; full-height white
+          vertical bars = draggable handles. No ring/shadow (they produced a stray
+          light bar at the handle edge while dragging) — focus tints the handle. */}
+      <SliderPrimitive.Root
         value={value}
         onValueChange={(newValue) => onValueChange(newValue as [number, number])}
         min={min}
         max={max}
         step={step}
-        className="w-full"
-      />
-
-      <div className="flex justify-between text-xs text-slate-500 tabular-nums">
-        <span>{formatValue(min)}</span>
-        <span>{formatValue(max)}</span>
-      </div>
+        className="relative flex h-11 w-full touch-none items-center select-none rounded-lg border-x-[6px] border-transparent bg-[#141d30]"
+      >
+        <SliderPrimitive.Track className="relative h-full w-full grow overflow-hidden rounded-md bg-[#141d30]">
+          <SliderPrimitive.Range className="absolute h-full bg-[#39496a]" />
+        </SliderPrimitive.Track>
+        <SliderPrimitive.Thumb
+          aria-label={`${label} minimum`}
+          className="block h-11 w-1.5 rounded-[2px] bg-white outline-none transition-colors focus-visible:bg-sky-200"
+        />
+        <SliderPrimitive.Thumb
+          aria-label={`${label} maximum`}
+          className="block h-11 w-1.5 rounded-[2px] bg-white outline-none transition-colors focus-visible:bg-sky-200"
+        />
+      </SliderPrimitive.Root>
     </div>
   )
 }
@@ -153,7 +154,6 @@ export default function TournamentStatsClient({ matches, weapons, initialData }:
   const [selectedMatches, setSelectedMatches] = useState<string[]>(matches.map((match) => match.id))
   const [distanceRange, setDistanceRange] = useState<[number, number]>([0, 400])
   const [timeRange, setTimeRange] = useState<[number, number]>([0, 30])
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [data, setData] = useState<PlayerRow[]>(initialData)
 
   const fetchData = async (
@@ -194,81 +194,54 @@ export default function TournamentStatsClient({ matches, weapons, initialData }:
     debouncedFetchTime(newTime)
   }
 
-  return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
-      <div
-        className={cn(
-          "overflow-hidden rounded-2xl border border-white/8 bg-[#0b1321]/80 shadow-[0_20px_60px_rgba(2,6,23,0.24)]",
-          filtersOpen ? "w-full max-w-[520px]" : "w-fit max-w-full"
-        )}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          aria-expanded={filtersOpen}
-          onClick={() => setFiltersOpen((open) => !open)}
-          className={cn(
-            "flex h-auto items-center justify-between rounded-none px-4 py-3.5 text-left hover:bg-white/[0.02]",
-            filtersOpen ? "w-full" : "w-auto min-w-[180px]"
-          )}
-        >
-          <span className="text-sm font-medium text-slate-200">Filters</span>
-          <ChevronDown
-            className={cn(
-              "size-4 shrink-0 text-slate-500 transition-transform duration-200",
-              filtersOpen && "rotate-180"
-            )}
-          />
-        </Button>
-
-        {filtersOpen && (
-          <div className="border-t border-white/8 px-4 py-4">
-            <div className="grid gap-3">
-              <DropdownMenuCheckboxes
-                title="Matches"
-                items={matches}
-                selectedIds={selectedMatches}
-                onSelectionChange={handleMatchesChange}
-              />
-
-              {/* Temporarily hidden while weapon-group UX is being reworked. */}
-              {/* <DropdownMenuCheckboxes
-                title="Weapons"
-                items={weapons}
-                selectedIds={selectedWeapons}
-                onSelectionChange={handleWeaponsChange}
-              /> */}
-            </div>
-
-            <div className="mt-4 flex flex-col gap-3">
-              <SliderRange
-                label="Distance"
-                value={distanceRange}
-                onValueChange={handleDistanceChange}
-                min={0}
-                max={400}
-                step={5}
-                unit="m"
-              />
-              <SliderRange
-                label="Time Window"
-                value={timeRange}
-                onValueChange={handleTimeChange}
-                min={0}
-                max={30}
-                step={0.5}
-                unit="min"
-              />
-            </div>
-          </div>
-        )}
+  // Floating primary filters — all on one horizontal row (lg+), fixed-size and
+  // left-aligned so they don't span the table width. Bottoms align so the
+  // Matches pill and the two slider tracks share a baseline.
+  const filters = (
+    <div className="mb-2.5 flex flex-col gap-3 lg:flex-row lg:items-end">
+      <div className="w-full lg:w-40 lg:shrink-0">
+        <DropdownMenuCheckboxes
+          title="Matches"
+          items={matches}
+          selectedIds={selectedMatches}
+          onSelectionChange={handleMatchesChange}
+        />
       </div>
 
+      <div className="w-full lg:w-64 lg:shrink-0">
+        <SliderRange
+          label="Distance"
+          value={distanceRange}
+          onValueChange={handleDistanceChange}
+          min={0}
+          max={400}
+          step={5}
+          unit="m"
+        />
+      </div>
+
+      <div className="w-full lg:w-64 lg:shrink-0">
+        <SliderRange
+          label="Time Window"
+          value={timeRange}
+          onValueChange={handleTimeChange}
+          min={0}
+          max={30}
+          step={0.5}
+          unit="min"
+        />
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      {filters}
       <DataTable
         columns={columns}
         data={data}
         initialSorting={[{ id: "eliminations", desc: true }]}
       />
-    </div>
+    </>
   )
 }
