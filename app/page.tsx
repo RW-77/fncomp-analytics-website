@@ -3,20 +3,24 @@ import { ArrowRight, BarChart3, Database, Filter } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getFilteredStats } from "@/lib/actions"
+import { getPreviewPlayerStats } from "@/lib/stats"
 import { prisma } from "@/lib/prisma"
 import {
   compareTournamentRegions,
   getTournamentDisplayTitle,
 } from "@/lib/tournaments"
 
-import { cacheLife, cacheTag } from "next/cache"
+// Statically generate the homepage and regenerate it at most once an hour (ISR).
+// The preview data only changes when a new tournament is ingested, so there's no
+// need to rebuild it on every request.
+export const revalidate = 3600
+
 
 
 const featureCards = [
   {
     title: "Tournament coverage",
-    description: "Organize event windows by series and region so analysts can move through weekends quickly.",
+    description: "Organize event windows by series and region so analysts can move through tournaments quickly.",
     icon: Database,
   },
   {
@@ -55,9 +59,6 @@ function formatDateRange(startTime: Date | null, endTime: Date | null) {
  * and top players across all of its event_windows.
  */
 async function getHomepagePreview() {
-  "use cache"
-  cacheLife("max")
-  cacheTag("preview-stats")
   const latestEventWindow = await prisma.event_windows.findFirst({
     where: { tournament_id: { not: null }, start_time: { not: null } },
     orderBy: { start_time: "desc" },
@@ -97,12 +98,7 @@ async function getHomepagePreview() {
     orderBy: { start_time: "desc" },
   })
 
-  const statsRows = await getFilteredStats({
-    selectedMatches: matches.map((match) => match.match_id),
-    weaponTypes: [],
-    distanceRange: [0, 400],
-    timeRange: [0, 30],
-  })
+  const statsRows = await getPreviewPlayerStats(matches.map((match) => match.match_id))
 
   const startTimes = eventWindows
     .map((eventWindow) => eventWindow.start_time)
@@ -228,6 +224,7 @@ export default async function Home() {
                     {preview.badge}
                   </div>
                 )}
+                */
               </div>
             </div>
 
