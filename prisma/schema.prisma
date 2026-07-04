@@ -88,6 +88,7 @@ model match_players {
   epic_id                                                                        String                       @db.VarChar(100)
   epic_username                                                                  String                       @db.VarChar(100)
   match_id                                                                       String                       @db.VarChar(50)
+  alive_intervals                                                                alive_intervals[]
   assist_events_assist_events_actor_idTomatch_players                            assist_events[]              @relation("assist_events_actor_idTomatch_players")
   assist_events_assist_events_killer_idTomatch_players                           assist_events[]              @relation("assist_events_killer_idTomatch_players")
   assist_events_assist_events_victim_idTomatch_players                           assist_events[]              @relation("assist_events_victim_idTomatch_players")
@@ -127,6 +128,7 @@ model matches {
   player_count               Int?
   build_major                Int?
   build_minor                Int?
+  alive_intervals            alive_intervals[]
   assist_events              assist_events[]
   damage_contribution_events damage_contribution_events[]
   damage_dealt_events        damage_dealt_events[]
@@ -340,4 +342,19 @@ model reboot_events {
   @@index([rebooted_id], map: "idx_reboot_rebooted")
   @@index([rebooter_id], map: "idx_reboot_rebooter")
   @@index([game_time_seconds], map: "idx_reboot_time")
+}
+
+model alive_intervals {
+  id            Int           @id @default(autoincrement())
+  match_id      String        @db.VarChar(50)
+  player_id     Int
+  start_seconds Float
+  end_seconds   Float
+  matches       matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players match_players @relation(fields: [player_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([end_seconds], map: "idx_alive_end")
+  @@index([match_id], map: "idx_alive_match")
+  @@index([player_id], map: "idx_alive_player")
+  @@index([start_seconds], map: "idx_alive_start")
 }
