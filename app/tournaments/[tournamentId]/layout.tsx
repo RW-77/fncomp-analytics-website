@@ -8,7 +8,7 @@ import { compareTournamentRegions, getTournamentDisplayTitle } from "@/lib/tourn
 import {
   RegionDayToggles,
   SerializedEventWindow,
-  TournamentStatCards,
+  TournamentMeta,
   TournamentTabNav,
 } from "./tournament-nav"
 
@@ -68,38 +68,36 @@ export default async function TournamentLayout({ params, children }: LayoutProps
   )
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      {/* Header card */}
-      <section className="mb-5 rounded-2xl border border-white/8 bg-[#0b1321]/80 px-5 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.24)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <Link
-              href="/tournaments"
-              className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.2em] text-slate-400 transition-colors hover:text-slate-200"
-            >
-              <ArrowLeft className="size-3" />
-              Tournaments
-            </Link>
-            <div>
-              <div className="text-[10px] font-medium uppercase tracking-[0.24em] text-sky-200">
-                Tournament
-              </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                {tournamentTitle}
-              </h1>
-            </div>
-          </div>
+    <>
+      {/* Scoped solid-navy backdrop — overrides the global body gradient for
+          tournament pages only, without editing globals.css. */}
+      <div className="fixed inset-0 -z-10 bg-[#0a0f1a]" aria-hidden />
 
-          <TournamentStatCards eventWindows={serializedEventWindows} />
-        </div>
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-6 md:px-14">
+        {/* Header — integrated into the page, no card */}
+        <header className="mb-6">
+          <Link
+            href="/tournaments"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200"
+          >
+            <ArrowLeft className="size-3.5" />
+            Tournaments
+          </Link>
 
-        <RegionDayToggles availableRegions={availableRegions} regionToDays={regionToDays} />
-      </section>
+          <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-5xl">
+            {tournamentTitle}
+          </h1>
 
-      {/* Tab nav — primary navigation, lives outside the header card */}
-      <TournamentTabNav tournamentId={tournamentId} />
+          <TournamentMeta eventWindows={serializedEventWindows} />
 
-      {children}
-    </div>
+          <RegionDayToggles availableRegions={availableRegions} regionToDays={regionToDays} />
+        </header>
+
+        {/* Primary view switcher */}
+        <TournamentTabNav tournamentId={tournamentId} />
+
+        {children}
+      </div>
+    </>
   )
 }
