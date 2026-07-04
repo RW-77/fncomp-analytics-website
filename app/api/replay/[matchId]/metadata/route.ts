@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { getMatchData, getMapAssets } from "@/lib/replay/match-data"
-import { getMatchBuildVersion } from "@/lib/actions"
+import { getMatchBuildVersion } from "@/lib/stats"
 
 export async function GET(
   _req: NextRequest,
