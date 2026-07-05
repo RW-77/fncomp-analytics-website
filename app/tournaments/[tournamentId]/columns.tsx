@@ -217,7 +217,12 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "damageContribution",
-    meta: { label: "DMG Contribution", group: "Damage", description: "Player's share of the team's damage.", icon: PieChart },
+    meta: { 
+      label: "DMG Contribution", 
+      group: "Damage", 
+      description: "Total damage contribution onto team eliminations.", 
+      icon: PieChart 
+    },
     header: ({ column }) => (
       <SortableHeader
         label="DMG Contrib"
@@ -234,7 +239,12 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "assists",
-    meta: { label: "Assists", group: "Combat", description: "Elimination assists.", icon: Users },
+    meta: {
+      label: "Assists", 
+      group: "Combat", 
+      description: "Assists onto team eliminations.", 
+      icon: Users 
+    },
     header: ({ column }) => (
       <SortableHeader
         label="Assists"
@@ -251,7 +261,12 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "shotAttempts",
-    meta: { label: "Shots Attempts", group: "Accuracy", description: "Total shots fired.", icon: Target },
+    meta: { 
+      label: "Shots Attempts", 
+      group: "Accuracy", 
+      description: "Total shots attempted onto exposed enemy players.", 
+      icon: Target 
+    },
     header: ({ column }) => (
       <SortableHeader
         label="Shot Attempts"
