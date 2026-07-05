@@ -60,7 +60,7 @@ export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
       <SheetTrigger asChild>
         <Button
           variant="outline"
-          className="border-0 bg-[#e3c97e] font-semibold text-[#20180a] shadow-none hover:bg-[#ecd699] dark:bg-[#e3c97e] dark:hover:bg-[#ecd699]"
+          className="border-0 bg-gradient-to-b from-[var(--accent-gold-strong)] to-[var(--accent-gold)] font-semibold text-[var(--accent-gold-fg)] shadow-[0_2px_12px_-2px_rgba(227,201,126,0.55)] transition-shadow hover:from-[#f4e3ad] hover:to-[var(--accent-gold-strong)] hover:shadow-[0_2px_16px_-2px_rgba(227,201,126,0.75)]"
         >
           <SlidersHorizontal className="size-4" />
           Columns
@@ -102,10 +102,10 @@ export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
               aria-pressed={mode === "reorder"}
               onClick={() => setMode((m) => (m === "reorder" ? "toggle" : "reorder"))}
               className={cn(
-                "ml-auto h-8 border-white/[0.08] text-xs shadow-none",
+                "ml-auto h-8 text-xs shadow-none",
                 mode === "reorder"
-                  ? "bg-sky-500/15 text-sky-200 hover:bg-sky-500/20 dark:bg-sky-500/15 dark:hover:bg-sky-500/20"
-                  : "bg-[#1c2942] text-slate-200 hover:bg-[#26354f] dark:bg-[#1c2942] dark:hover:bg-[#26354f]"
+                  ? "border-0 bg-[var(--accent-gold)] font-semibold text-[var(--accent-gold-fg)] hover:bg-[var(--accent-gold-strong)] dark:bg-[var(--accent-gold)] dark:hover:bg-[var(--accent-gold-strong)]"
+                  : "border-[var(--accent-gold)]/30 bg-[#1c2942] text-[var(--accent-gold)] hover:bg-[#26354f] dark:bg-[#1c2942] dark:hover:bg-[#26354f]"
               )}
             >
               Reorder
