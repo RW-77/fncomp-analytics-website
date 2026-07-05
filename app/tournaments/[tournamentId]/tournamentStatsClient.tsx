@@ -56,11 +56,11 @@ export function DropdownMenuCheckboxes({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-md border-0 bg-[#141d30] px-4 shadow-none hover:bg-[#1c2942] dark:bg-[#141d30] dark:hover:bg-[#1c2942]"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-md border-0 bg-[var(--accent-gold)] px-4 shadow-none hover:bg-[var(--accent-gold-strong)] dark:bg-[var(--accent-gold)] dark:hover:bg-[var(--accent-gold-strong)]"
         >
-          <Filter className="size-3.5 shrink-0 text-slate-500" />
-          <span className="text-sm font-medium text-slate-200">{title}</span>
-          <ChevronDown className="size-4 shrink-0 text-slate-500" />
+          <Filter className="size-3.5 shrink-0 text-[var(--accent-gold-fg)]/70" />
+          <span className="text-sm font-semibold text-[var(--accent-gold-fg)]">{title}</span>
+          <ChevronDown className="size-4 shrink-0 text-[var(--accent-gold-fg)]/70" />
         </Button>
       </DropdownMenuTrigger>
       {/* Opens as an overlay so expanding the list never grows the page height. */}
@@ -108,7 +108,7 @@ export function SliderRange({
     <div>
       {/* Compact caption — kept small so the slider below is the dominant element. */}
       <div className="mb-1 flex items-baseline justify-between gap-3">
-        <span className="text-xs font-medium text-slate-300">{label}</span>
+        <span className="text-xs font-semibold text-[var(--accent-gold)]">{label}</span>
         <span className="text-xs tabular-nums text-slate-400">
           {value[0]}–{value[1]}
           {unit ? ` ${unit}` : ""}
@@ -128,15 +128,15 @@ export function SliderRange({
         className="relative flex h-11 w-full touch-none items-center select-none rounded-md border-x-[6px] border-transparent bg-[#141d30]"
       >
         <SliderPrimitive.Track className="relative h-full w-full grow overflow-hidden rounded bg-[#141d30]">
-          <SliderPrimitive.Range className="absolute h-full bg-[#39496a]" />
+          <SliderPrimitive.Range className="absolute h-full rounded-[2px] bg-[var(--accent-gold)]/25 ring-1 ring-inset ring-[var(--accent-gold)]" />
         </SliderPrimitive.Track>
         <SliderPrimitive.Thumb
           aria-label={`${label} minimum`}
-          className="block h-11 w-1.5 rounded-[2px] bg-white outline-none transition-colors focus-visible:bg-sky-200"
+          className="block h-11 w-1.5 rounded-[2px] bg-[var(--accent-gold)] outline-none transition-colors focus-visible:bg-[var(--accent-gold-strong)]"
         />
         <SliderPrimitive.Thumb
           aria-label={`${label} maximum`}
-          className="block h-11 w-1.5 rounded-[2px] bg-white outline-none transition-colors focus-visible:bg-sky-200"
+          className="block h-11 w-1.5 rounded-[2px] bg-[var(--accent-gold)] outline-none transition-colors focus-visible:bg-[var(--accent-gold-strong)]"
         />
       </SliderPrimitive.Root>
     </div>

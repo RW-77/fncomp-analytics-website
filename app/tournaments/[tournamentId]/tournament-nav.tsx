@@ -49,7 +49,7 @@ export function TournamentTabNav({ tournamentId }: { tournamentId: string }) {
             className={[
               "rounded-lg px-7 py-3 text-base transition-colors",
               isActive
-                ? "bg-[#30425f] font-semibold text-white"
+                ? "bg-[var(--accent-gold)]/10 font-semibold text-[var(--accent-gold)] ring-1 ring-inset ring-[var(--accent-gold)]/60"
                 : "font-medium text-slate-400 hover:bg-white/[0.05] hover:text-slate-200",
             ].join(" ")}
           >
@@ -108,7 +108,7 @@ export function RegionDayToggles({
                 variant={isActive ? "default" : "outline"}
                 className={
                   isActive
-                    ? "h-7 rounded-md bg-white/[0.10] px-3 text-xs font-semibold text-white hover:bg-white/[0.14]"
+                    ? "h-7 rounded-md bg-[var(--accent-gold)] px-3 text-xs font-semibold text-[var(--accent-gold-fg)] hover:bg-[var(--accent-gold-strong)]"
                     : "h-7 rounded-md px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
                 }
               >
@@ -134,7 +134,7 @@ export function RegionDayToggles({
                 variant={isActive ? "default" : "outline"}
                 className={
                   isActive
-                    ? "h-7 rounded-md bg-white/[0.10] px-3 text-xs font-semibold text-white hover:bg-white/[0.14]"
+                    ? "h-7 rounded-md bg-[var(--accent-gold)] px-3 text-xs font-semibold text-[var(--accent-gold-fg)] hover:bg-[var(--accent-gold-strong)]"
                     : "h-7 rounded-md px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
                 }
               >
@@ -147,7 +147,7 @@ export function RegionDayToggles({
             variant={effectiveDay === CUMULATIVE_DAY ? "default" : "outline"}
             className={
               effectiveDay === CUMULATIVE_DAY
-                ? "h-7 rounded-md bg-white/[0.10] px-3 text-xs font-semibold text-white hover:bg-white/[0.14]"
+                ? "h-7 rounded-md bg-[var(--accent-gold)] px-3 text-xs font-semibold text-[var(--accent-gold-fg)] hover:bg-[var(--accent-gold-strong)]"
                 : "h-7 rounded-md px-3 text-xs font-medium text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
             }
           >
