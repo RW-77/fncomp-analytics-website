@@ -84,7 +84,7 @@ export default async function TournamentLayout({ params, children }: LayoutProps
             Tournaments
           </Link>
 
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-5xl">
+          <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-5xl [font-family:var(--font-onest)]">
             {tournamentTitle}
           </h1>
 
