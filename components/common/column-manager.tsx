@@ -60,7 +60,7 @@ export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
       <SheetTrigger asChild>
         <Button
           variant="outline"
-          className="border-white/[0.08] bg-[#1c2942] text-slate-100 shadow-none hover:bg-[#26354f] dark:bg-[#1c2942] dark:hover:bg-[#26354f]"
+          className="border-0 bg-[#e3c97e] font-semibold text-[#20180a] shadow-none hover:bg-[#ecd699] dark:bg-[#e3c97e] dark:hover:bg-[#ecd699]"
         >
           <SlidersHorizontal className="size-4" />
           Columns
