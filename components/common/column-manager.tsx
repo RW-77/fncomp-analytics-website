@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Info, Lock, Search, SlidersHorizontal } from "lucide-react"
+import { GripVertical, Lock, Search, SlidersHorizontal } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -33,12 +33,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 function labelOf<TData>(column: Column<TData, unknown>): string {
@@ -123,15 +117,13 @@ export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
           </div>
         </div>
 
-        <TooltipProvider delayDuration={200}>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            {mode === "toggle" ? (
-              <ToggleList table={table} query={query.trim().toLowerCase()} />
-            ) : (
-              <ReorderList table={table} query={query.trim().toLowerCase()} />
-            )}
-          </div>
-        </TooltipProvider>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {mode === "toggle" ? (
+            <ToggleList table={table} query={query.trim().toLowerCase()} />
+          ) : (
+            <ReorderList table={table} query={query.trim().toLowerCase()} />
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   )
@@ -202,7 +194,6 @@ function ToggleList<TData>({ table, query }: { table: Table<TData>; query: strin
 
 function ColumnToggleRow<TData>({ column }: { column: Column<TData, unknown> }) {
   const Icon = column.columnDef.meta?.icon
-  const description = column.columnDef.meta?.description
   const id = `col-toggle-${column.id}`
 
   return (
@@ -217,25 +208,6 @@ function ColumnToggleRow<TData>({ column }: { column: Column<TData, unknown> }) 
       <label htmlFor={id} className="flex-1 cursor-pointer text-sm text-slate-200 select-none">
         {labelOf(column)}
       </label>
-      {description ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="text-slate-500 transition-colors hover:text-slate-300 focus-visible:text-sky-300 focus-visible:outline-none"
-              aria-label={`About ${labelOf(column)}`}
-            >
-              <Info className="size-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="left"
-            className="max-w-56 border border-white/[0.08] bg-[#1f2c49] text-slate-100"
-          >
-            {description}
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
     </div>
   )
 }

@@ -25,6 +25,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -87,21 +93,47 @@ export function DataTable<TData, TValue>({
         <ColumnManager table={table} />
       </div>
 
+      <TooltipProvider delayDuration={200}>
       <Table className="w-auto table-fixed" containerClassName="max-h-[72vh] overflow-y-auto">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="border-white/[0.06] hover:bg-transparent">
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  style={{ width: header.getSize() }}
-                  className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#1c2942]/95 px-2 py-1 align-middle backdrop-blur supports-[backdrop-filter]:bg-[#1c2942]/85 first:pl-4 last:pr-4"
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              ))}
+              {headerGroup.headers.map((header) => {
+                const meta = header.column.columnDef.meta
+                const headerEl = header.isPlaceholder
+                  ? null
+                  : flexRender(header.column.columnDef.header, header.getContext())
+                const description = header.isPlaceholder ? undefined : meta?.description
+
+                return (
+                  <TableHead
+                    key={header.id}
+                    style={{ width: header.getSize() }}
+                    className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#1c2942]/95 px-2 py-1 align-middle backdrop-blur supports-[backdrop-filter]:bg-[#1c2942]/85 first:pl-4 last:pr-4"
+                  >
+                    {description ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex">{headerEl}</span>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          className="max-w-xs rounded-lg border border-white/[0.08] bg-[#0f1729] p-4 text-left text-slate-300 shadow-xl"
+                        >
+                          <p className="text-sm font-semibold text-white">{meta?.label}</p>
+                          <p className="mt-1 text-sm leading-relaxed text-slate-300 [text-wrap:wrap]">
+                            {description}
+                          </p>
+                          {/* Future: methodology/documentation link goes here */}
+                          <p className="mt-2 text-xs text-slate-500 italic">Click to sort</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      headerEl
+                    )}
+                  </TableHead>
+                )
+              })}
             </TableRow>
           ))}
         </TableHeader>
@@ -136,6 +168,7 @@ export function DataTable<TData, TValue>({
           )}
         </TableBody>
       </Table>
+      </TooltipProvider>
     </div>
   )
 }
