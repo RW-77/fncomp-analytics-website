@@ -4,8 +4,11 @@ import { ColumnDef, RowData } from "@tanstack/react-table"
 import {
   ArrowUpDown,
   Crosshair,
+  HandHeart,
+  Hammer,
   HeartPulse,
   type LucideIcon,
+  PersonStanding,
   Percent,
   PieChart,
   RotateCcw,
@@ -76,24 +79,31 @@ function SortableHeader({
   label,
   onClick,
   align = "left",
+  sorted = false,
 }: {
   label: string
   onClick: () => void
   align?: "left" | "center" | "right"
+  sorted?: false | "asc" | "desc"
 }) {
   return (
     <Button
       variant="ghost"
       onClick={onClick}
       className={cn(
-        "h-auto min-h-8 gap-1 px-2 py-1 text-[14px] leading-tight tracking-tight whitespace-normal text-slate-400 hover:bg-transparent hover:text-white",
+        "h-auto min-h-8 gap-1 px-2 py-1 text-[14px] leading-tight tracking-tight whitespace-normal hover:bg-transparent",
+        sorted
+          ? "text-[var(--accent-gold)] hover:text-[var(--accent-gold)]"
+          : "text-slate-400 hover:text-white",
         align === "right" ? "ml-auto w-full justify-end text-right" :
         align === "center" ? "w-full justify-center text-center" :
         "-ml-2 justify-start text-left"
       )}
     >
       <span>{label}</span>
-      <ArrowUpDown className="size-3.5 shrink-0 text-slate-500" />
+      <ArrowUpDown
+        className={cn("size-3.5 shrink-0", sorted ? "text-[var(--accent-gold)]" : "text-slate-500")}
+      />
     </Button>
   )
 }
@@ -108,6 +118,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       <SortableHeader
         label="Player"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ row }) => (
@@ -124,6 +135,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Elims"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -140,6 +152,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="DMG Dealt"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -156,6 +169,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="DMG Received"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -166,12 +180,13 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "damageRatio",
-    meta: { label: "Dmg Ratio", group: "Damage", description: "Damage dealt divided by damage received.", icon: Scale },
+    meta: { label: "DMG Ratio", group: "Damage", description: "Damage dealt divided by damage received.", icon: Scale },
     header: ({ column }) => (
       <SortableHeader
-        label="Dmg Ratio"
+        label="DMG Ratio"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => {
@@ -191,6 +206,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Shots"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -207,6 +223,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="DMG Contrib"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -223,6 +240,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Assists"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -239,6 +257,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Shot Attempts"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -255,6 +274,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Accuracy"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => {
@@ -274,6 +294,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Time Alive"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -290,6 +311,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Rebooted"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (
@@ -306,6 +328,58 @@ export const columns: ColumnDef<PlayerRow>[] = [
         label="Rebooted Others"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "revived",
+    meta: { label: "Revived", group: "Utility", description: "Times this player was revived from a knockdown.", icon: PersonStanding },
+    header: ({ column }) => (
+      <SortableHeader
+        label="Revived"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "revivedOthers",
+    meta: { label: "Revived Others", group: "Utility", description: "Times this player revived a knocked teammate.", icon: HandHeart },
+    header: ({ column }) => (
+      <SortableHeader
+        label="Revived Others"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "buildsPlaced",
+    meta: { label: "Builds Placed", group: "Utility", description: "Structures placed.", icon: Hammer },
+    header: ({ column }) => (
+      <SortableHeader
+        label="Builds Placed"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
       />
     ),
     cell: ({ getValue }) => (

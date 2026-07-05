@@ -92,6 +92,7 @@ model match_players {
   assist_events_assist_events_actor_idTomatch_players                            assist_events[]              @relation("assist_events_actor_idTomatch_players")
   assist_events_assist_events_killer_idTomatch_players                           assist_events[]              @relation("assist_events_killer_idTomatch_players")
   assist_events_assist_events_victim_idTomatch_players                           assist_events[]              @relation("assist_events_victim_idTomatch_players")
+  build_placed_events                                                            build_placed_events[]
   damage_contribution_events_damage_contribution_events_actor_idTomatch_players  damage_contribution_events[] @relation("damage_contribution_events_actor_idTomatch_players")
   damage_contribution_events_damage_contribution_events_killer_idTomatch_players damage_contribution_events[] @relation("damage_contribution_events_killer_idTomatch_players")
   damage_contribution_events_damage_contribution_events_victim_idTomatch_players damage_contribution_events[] @relation("damage_contribution_events_victim_idTomatch_players")
@@ -104,6 +105,8 @@ model match_players {
   matches                                                                        matches                      @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
   reboot_events_reboot_events_rebooted_idTomatch_players                         reboot_events[]              @relation("reboot_events_rebooted_idTomatch_players")
   reboot_events_reboot_events_rebooter_idTomatch_players                         reboot_events[]              @relation("reboot_events_rebooter_idTomatch_players")
+  revive_events_revive_events_revived_idTomatch_players                          revive_events[]              @relation("revive_events_revived_idTomatch_players")
+  revive_events_revive_events_reviver_idTomatch_players                          revive_events[]              @relation("revive_events_reviver_idTomatch_players")
   shot_attempt_events_shot_attempt_events_actor_idTomatch_players                shot_attempt_events[]        @relation("shot_attempt_events_actor_idTomatch_players")
   shot_attempt_events_shot_attempt_events_recipient_idTomatch_players            shot_attempt_events[]        @relation("shot_attempt_events_recipient_idTomatch_players")
 
@@ -130,6 +133,7 @@ model matches {
   build_minor                Int?
   alive_intervals            alive_intervals[]
   assist_events              assist_events[]
+  build_placed_events        build_placed_events[]
   damage_contribution_events damage_contribution_events[]
   damage_dealt_events        damage_dealt_events[]
   elimination_events         elimination_events[]
@@ -139,6 +143,7 @@ model matches {
   match_weapons              match_weapons[]
   event_windows              event_windows                @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
   reboot_events              reboot_events[]
+  revive_events              revive_events[]
   shot_attempt_events        shot_attempt_events[]
 }
 
@@ -357,4 +362,42 @@ model alive_intervals {
   @@index([match_id], map: "idx_alive_match")
   @@index([player_id], map: "idx_alive_player")
   @@index([start_seconds], map: "idx_alive_start")
+}
+
+model revive_events {
+  id                                                    Int            @id @default(autoincrement())
+  match_id                                              String         @db.VarChar(50)
+  timestamp                                             DateTime       @db.Timestamp(6)
+  game_time_seconds                                     Float?
+  revived_id                                            Int
+  reviver_id                                            Int?
+  matches                                               matches        @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_revive_events_revived_idTomatch_players match_players  @relation("revive_events_revived_idTomatch_players", fields: [revived_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_revive_events_reviver_idTomatch_players match_players? @relation("revive_events_reviver_idTomatch_players", fields: [reviver_id], references: [id], onUpdate: NoAction)
+
+  @@index([match_id], map: "idx_revive_match")
+  @@index([revived_id], map: "idx_revive_revived")
+  @@index([reviver_id], map: "idx_revive_reviver")
+  @@index([game_time_seconds], map: "idx_revive_time")
+}
+
+model build_placed_events {
+  id                Int           @id @default(autoincrement())
+  match_id          String        @db.VarChar(50)
+  timestamp         DateTime      @db.Timestamp(6)
+  game_time_seconds Float?
+  builder_id        Int
+  build_type        String?       @db.VarChar(200)
+  location_x        Float?
+  location_y        Float?
+  location_z        Float?
+  build_actor_id    Int?
+  edited_actor_id   Int?
+  match_players     match_players @relation(fields: [builder_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches           matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([builder_id], map: "idx_buildplaced_builder")
+  @@index([match_id], map: "idx_buildplaced_match")
+  @@index([game_time_seconds], map: "idx_buildplaced_time")
+  @@index([build_type], map: "idx_buildplaced_type")
 }

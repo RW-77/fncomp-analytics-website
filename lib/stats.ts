@@ -268,6 +268,18 @@ const STAT_CAPABILITIES = {
     supportsTimeRange: true,
     supportsDistanceRange: false,
   } as FilterCapabilities,
+  revives: {
+    supportsMatches: true,
+    supportsWeaponTypes: false, // revive_events has no weapon column
+    supportsTimeRange: true,
+    supportsDistanceRange: false,
+  } as FilterCapabilities,
+  buildsPlaced: {
+    supportsMatches: true,
+    supportsWeaponTypes: false, // build_placed_events has no weapon column
+    supportsTimeRange: true,
+    supportsDistanceRange: false,
+  } as FilterCapabilities,
   timeAlive: {
     supportsMatches: true,
     supportsWeaponTypes: false, // alive_intervals has no weapon column
@@ -497,6 +509,78 @@ async function getRebootedOthersByPlayer(filters: StatFilters): Promise<Map<numb
 }
 
 /**
+ * Number of times each player was revived (revived side). A revive with
+ * multiple revivers produces multiple rows sharing a timestamp, so we count
+ * DISTINCT (revived_id, timestamp) to avoid double-counting one revive.
+ */
+async function getRevivedByPlayer(filters: StatFilters): Promise<Map<number, number>> {
+  const whereClause = buildWhereClause(filters, STAT_CAPABILITIES.revives)
+
+  const rows = await prisma.revive_events.groupBy({
+    by: ["revived_id", "timestamp"],
+    where: whereClause,
+  })
+
+  const map = new Map<number, number>()
+  for (const r of rows) {
+    map.set(r.revived_id, (map.get(r.revived_id) ?? 0) + 1)
+  }
+  return map
+}
+
+/**
+ * Number of revives each player performed on teammates (reviver side). Each row
+ * is one (revive, reviver) pair, so a straight count is correct; rows with a
+ * null reviver are skipped.
+ */
+async function getRevivedOthersByPlayer(filters: StatFilters): Promise<Map<number, number>> {
+  const whereClause = buildWhereClause(filters, STAT_CAPABILITIES.revives)
+
+  const results = await prisma.revive_events.groupBy({
+    by: ["reviver_id"],
+    where: whereClause,
+    _count: { _all: true },
+  })
+
+  const map = new Map<number, number>()
+  for (const row of results) {
+    if (row.reviver_id === null) continue
+    if (row._count && typeof row._count === "object" && "_all" in row._count) {
+      const count = row._count._all
+      if (typeof count === "number") {
+        map.set(row.reviver_id, count)
+      }
+    }
+  }
+  return map
+}
+
+/**
+ * Number of structures each player placed. Each row in build_placed_events is
+ * one placement, so a straight count grouped by builder_id is correct.
+ */
+async function getBuildsPlacedByPlayer(filters: StatFilters): Promise<Map<number, number>> {
+  const whereClause = buildWhereClause(filters, STAT_CAPABILITIES.buildsPlaced)
+
+  const results = await prisma.build_placed_events.groupBy({
+    by: ["builder_id"],
+    where: whereClause,
+    _count: { _all: true },
+  })
+
+  const map = new Map<number, number>()
+  for (const row of results) {
+    if (row._count && typeof row._count === "object" && "_all" in row._count) {
+      const count = row._count._all
+      if (typeof count === "number") {
+        map.set(row.builder_id, count)
+      }
+    }
+  }
+  return map
+}
+
+/**
  * Total seconds each player was alive, summed over their alive intervals.
  *
  * Each row in `alive_intervals` is one contiguous span [start_seconds,
@@ -555,6 +639,9 @@ export async function computeFilteredStats(filters: StatFilters): Promise<Player
     shotsHitMap,
     rebootedMap,
     rebootedOthersMap,
+    revivedMap,
+    revivedOthersMap,
+    buildsPlacedMap,
     timeAliveMap,
   ] = await Promise.all([
     getEliminationsByPlayer(filters),
@@ -567,6 +654,9 @@ export async function computeFilteredStats(filters: StatFilters): Promise<Player
     getShotAttemptsByPlayer(filters, true),
     getRebootedByPlayer(filters),
     getRebootedOthersByPlayer(filters),
+    getRevivedByPlayer(filters),
+    getRevivedOthersByPlayer(filters),
+    getBuildsPlacedByPlayer(filters),
     getTimeAliveByPlayer(filters),
   ])
 
@@ -582,6 +672,9 @@ export async function computeFilteredStats(filters: StatFilters): Promise<Player
   shotsHitMap.forEach((_, actorId) => allActorIds.add(actorId))
   rebootedMap.forEach((_, actorId) => allActorIds.add(actorId))
   rebootedOthersMap.forEach((_, actorId) => allActorIds.add(actorId))
+  revivedMap.forEach((_, actorId) => allActorIds.add(actorId))
+  revivedOthersMap.forEach((_, actorId) => allActorIds.add(actorId))
+  buildsPlacedMap.forEach((_, actorId) => allActorIds.add(actorId))
   timeAliveMap.forEach((_, actorId) => allActorIds.add(actorId))
 
   // Get player information for all actors
@@ -616,6 +709,9 @@ export async function computeFilteredStats(filters: StatFilters): Promise<Player
         accuracy: null,
         rebooted: 0,
         rebootedOthers: 0,
+        revived: 0,
+        revivedOthers: 0,
+        buildsPlaced: 0,
         timeAlive: 0,
       } as unknown as PlayerRow)
     }
@@ -695,6 +791,28 @@ export async function computeFilteredStats(filters: StatFilters): Promise<Player
     const playerInfo = playerInfoMap.get(actorId)
     if (playerInfo) {
       getOrCreateRow(playerInfo.epicId, playerInfo.displayName).rebootedOthers += count
+    }
+  })
+
+  // Process revives (times revived, and revives performed on teammates)
+  revivedMap.forEach((count, actorId) => {
+    const playerInfo = playerInfoMap.get(actorId)
+    if (playerInfo) {
+      getOrCreateRow(playerInfo.epicId, playerInfo.displayName).revived += count
+    }
+  })
+  revivedOthersMap.forEach((count, actorId) => {
+    const playerInfo = playerInfoMap.get(actorId)
+    if (playerInfo) {
+      getOrCreateRow(playerInfo.epicId, playerInfo.displayName).revivedOthers += count
+    }
+  })
+
+  // Process builds placed
+  buildsPlacedMap.forEach((count, actorId) => {
+    const playerInfo = playerInfoMap.get(actorId)
+    if (playerInfo) {
+      getOrCreateRow(playerInfo.epicId, playerInfo.displayName).buildsPlaced += count
     }
   })
 
