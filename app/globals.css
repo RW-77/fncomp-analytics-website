@@ -44,6 +44,10 @@
 }
 
 :root {
+  /* Site accent — light gold. */
+  --accent-gold: #e3c97e;
+  --accent-gold-strong: #ecd699;
+  --accent-gold-fg: #20180a;
   --radius: 0.625rem;
   --background: oklch(0.16 0.018 258);
   --foreground: oklch(0.96 0.01 255);
