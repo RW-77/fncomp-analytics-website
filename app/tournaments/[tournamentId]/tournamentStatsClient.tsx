@@ -56,7 +56,7 @@ export function DropdownMenuCheckboxes({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border-0 bg-[#141d30] px-4 shadow-none hover:bg-[#1c2942] dark:bg-[#141d30] dark:hover:bg-[#1c2942]"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-md border-0 bg-[#141d30] px-4 shadow-none hover:bg-[#1c2942] dark:bg-[#141d30] dark:hover:bg-[#1c2942]"
         >
           <Filter className="size-3.5 shrink-0 text-slate-500" />
           <span className="text-sm font-medium text-slate-200">{title}</span>
@@ -125,9 +125,9 @@ export function SliderRange({
         min={min}
         max={max}
         step={step}
-        className="relative flex h-11 w-full touch-none items-center select-none rounded-lg border-x-[6px] border-transparent bg-[#141d30]"
+        className="relative flex h-11 w-full touch-none items-center select-none rounded-md border-x-[6px] border-transparent bg-[#141d30]"
       >
-        <SliderPrimitive.Track className="relative h-full w-full grow overflow-hidden rounded-md bg-[#141d30]">
+        <SliderPrimitive.Track className="relative h-full w-full grow overflow-hidden rounded bg-[#141d30]">
           <SliderPrimitive.Range className="absolute h-full bg-[#39496a]" />
         </SliderPrimitive.Track>
         <SliderPrimitive.Thumb
