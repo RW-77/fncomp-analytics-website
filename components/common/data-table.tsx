@@ -45,6 +45,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
+    defaultColumn: { size: 88 },
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
@@ -63,7 +64,7 @@ export function DataTable<TData, TValue>({
   const rowCount = table.getFilteredRowModel().rows.length
 
   return (
-    <div className="overflow-hidden rounded-xl bg-[#141d30]">
+    <div className="overflow-hidden rounded-md bg-[#141d30]">
       <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           <div className="min-w-[112px]">
@@ -86,14 +87,15 @@ export function DataTable<TData, TValue>({
         <ColumnManager table={table} />
       </div>
 
-      <Table containerClassName="max-h-[72vh] overflow-y-auto">
+      <Table className="w-auto table-fixed" containerClassName="max-h-[72vh] overflow-y-auto">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="border-white/[0.06] hover:bg-transparent">
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#1c2942]/95 px-3 py-0 align-middle backdrop-blur supports-[backdrop-filter]:bg-[#1c2942]/85 first:pl-4 last:pr-4"
+                  style={{ width: header.getSize() }}
+                  className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#1c2942]/95 px-2 py-1 align-middle backdrop-blur supports-[backdrop-filter]:bg-[#1c2942]/85 first:pl-4 last:pr-4"
                 >
                   {header.isPlaceholder
                     ? null
@@ -115,7 +117,7 @@ export function DataTable<TData, TValue>({
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className="px-3 py-2.5 text-sm text-slate-300 first:pl-4 last:pr-4"
+                    className="truncate px-2 py-2.5 text-sm text-slate-300 first:pl-4 last:pr-4"
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
