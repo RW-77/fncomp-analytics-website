@@ -319,6 +319,23 @@ export const columns: ColumnDef<PlayerRow>[] = [
     ),
   },
   {
+    accessorKey: "buildsPlaced",
+    meta: { label: "Builds Placed", group: "Utility", description: "Structures placed.", icon: Hammer },
+    header: ({ column }) => (
+      <SortableHeader
+        label="Builds Placed"
+        align="center"
+        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
+        sorted={column.getIsSorted()}
+      />
+    ),
+    cell: ({ getValue }) => (
+      <div className="text-center font-medium text-slate-200 tabular-nums">
+        {formatStatValue(getValue<number>())}
+      </div>
+    ),
+  },
+  {
     accessorKey: "rebooted",
     meta: { label: "Rebooted", group: "Utility", description: "Times this player was rebooted back into the match.", icon: RotateCcw },
     header: ({ column }) => (
@@ -375,23 +392,6 @@ export const columns: ColumnDef<PlayerRow>[] = [
     header: ({ column }) => (
       <SortableHeader
         label="Revived Others"
-        align="center"
-        onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
-        sorted={column.getIsSorted()}
-      />
-    ),
-    cell: ({ getValue }) => (
-      <div className="text-center font-medium text-slate-200 tabular-nums">
-        {formatStatValue(getValue<number>())}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "buildsPlaced",
-    meta: { label: "Builds Placed", group: "Utility", description: "Structures placed.", icon: Hammer },
-    header: ({ column }) => (
-      <SortableHeader
-        label="Builds Placed"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
         sorted={column.getIsSorted()}
