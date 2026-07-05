@@ -64,12 +64,12 @@ function formatDuration(value: number | null | undefined) {
   const hours = Math.floor(total / 3600)
   const minutes = Math.floor((total % 3600) / 60)
   if (hours > 0) {
-    return `${hours} hr ${minutes} min`
+    return `${hours}hr ${minutes}min`
   }
   if (minutes > 0) {
-    return `${minutes} min`
+    return `${minutes}min`
   }
-  return `${total} sec`
+  return `${total}sec`
 }
 
 function SortableHeader({
@@ -86,14 +86,14 @@ function SortableHeader({
       variant="ghost"
       onClick={onClick}
       className={cn(
-        "h-8 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 hover:bg-transparent hover:text-white",
-        align === "right" ? "ml-auto w-full justify-end" :
-        align === "center" ? "w-full justify-center" :
-        "-ml-2 justify-start"
+        "h-auto min-h-8 gap-1 px-2 py-1 text-[14px] leading-tight tracking-tight whitespace-normal text-slate-400 hover:bg-transparent hover:text-white",
+        align === "right" ? "ml-auto w-full justify-end text-right" :
+        align === "center" ? "w-full justify-center text-center" :
+        "-ml-2 justify-start text-left"
       )}
     >
-      {label}
-      <ArrowUpDown className="size-3.5 text-slate-500" />
+      <span>{label}</span>
+      <ArrowUpDown className="size-3.5 shrink-0 text-slate-500" />
     </Button>
   )
 }
@@ -102,6 +102,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   {
     accessorKey: "player",
     enableHiding: false,
+    size: 190,
     meta: { label: "Player", description: "Player name.", icon: User },
     header: ({ column }) => (
       <SortableHeader
@@ -200,7 +201,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "damageContribution",
-    meta: { label: "DMG Contrib", group: "Damage", description: "Player's share of the team's damage.", icon: PieChart },
+    meta: { label: "DMG Contribution", group: "Damage", description: "Player's share of the team's damage.", icon: PieChart },
     header: ({ column }) => (
       <SortableHeader
         label="DMG Contrib"
@@ -232,10 +233,10 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "shotAttempts",
-    meta: { label: "Shot Att", group: "Accuracy", description: "Total shots fired.", icon: Target },
+    meta: { label: "Shots Attempts", group: "Accuracy", description: "Total shots fired.", icon: Target },
     header: ({ column }) => (
       <SortableHeader
-        label="Shot Att"
+        label="Shot Attempts"
         align="center"
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
       />
