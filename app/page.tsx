@@ -224,7 +224,6 @@ export default async function Home() {
                     {preview.badge}
                   </div>
                 )}
-                */
               </div>
             </div>
 
