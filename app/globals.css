@@ -116,6 +116,21 @@
   --sidebar-ring: oklch(0.71 0.08 228);
 }
 
+/* Gold gradient text with a soft glow — used for the hero title accent word. */
+@utility text-gradient-gold {
+  background-image: linear-gradient(
+    92deg,
+    #f4e4b0 0%,
+    var(--accent-gold) 45%,
+    #c9a44e 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 22px rgba(227, 201, 126, 0.28));
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
