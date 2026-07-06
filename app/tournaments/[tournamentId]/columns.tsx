@@ -35,6 +35,9 @@ declare module "@tanstack/react-table" {
     group?: string
     description?: string
     icon?: LucideIcon
+    // Flags a derived/composite metric (vs. a raw count) so the header renders a
+    // gold asterisk and the tooltip an "Advanced metric" line.
+    advanced?: boolean
   }
 }
 
@@ -80,11 +83,13 @@ function SortableHeader({
   onClick,
   align = "left",
   sorted = false,
+  advanced = false,
 }: {
   label: string
   onClick: () => void
   align?: "left" | "center" | "right"
   sorted?: false | "asc" | "desc"
+  advanced?: boolean
 }) {
   return (
     <Button
@@ -100,7 +105,17 @@ function SortableHeader({
         "-ml-2 justify-start text-left"
       )}
     >
-      <span>{label}</span>
+      <span>
+        {label}
+        {advanced && (
+          <sup
+            aria-hidden
+            className="ml-0.5 align-super text-[0.7em] font-semibold text-[var(--accent-gold)]"
+          >
+            *
+          </sup>
+        )}
+      </span>
       <ArrowUpDown
         className={cn("size-3.5 shrink-0", sorted ? "text-[var(--accent-gold)]" : "text-slate-500")}
       />
@@ -200,7 +215,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "shotsTaken",
-    meta: { label: "Shots", group: "Accuracy", description: "Shots that landed on opponents.", icon: Crosshair },
+    meta: { label: "Shots", group: "Accuracy", description: "Total shots taken.", icon: Crosshair },
     header: ({ column }) => (
       <SortableHeader
         label="Shots"
@@ -217,16 +232,18 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "damageContribution",
-    meta: { 
-      label: "DMG Contribution", 
-      group: "Damage", 
-      description: "Total damage contribution onto team eliminations.", 
-      icon: PieChart 
+    meta: {
+      label: "DMG Contribution",
+      group: "Damage",
+      description: "Total damage contribution onto team eliminations.",
+      icon: PieChart,
+      advanced: true,
     },
     header: ({ column }) => (
       <SortableHeader
         label="DMG Contrib"
         align="center"
+        advanced={column.columnDef.meta?.advanced}
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
         sorted={column.getIsSorted()}
       />
@@ -240,15 +257,17 @@ export const columns: ColumnDef<PlayerRow>[] = [
   {
     accessorKey: "assists",
     meta: {
-      label: "Assists", 
-      group: "Combat", 
-      description: "Assists onto team eliminations.", 
-      icon: Users 
+      label: "Assists",
+      group: "Combat",
+      description: "Assists onto team eliminations.",
+      icon: Users,
+      advanced: true,
     },
     header: ({ column }) => (
       <SortableHeader
         label="Assists"
         align="center"
+        advanced={column.columnDef.meta?.advanced}
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
         sorted={column.getIsSorted()}
       />
@@ -261,16 +280,18 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "shotAttempts",
-    meta: { 
-      label: "Shots Attempts", 
-      group: "Accuracy", 
-      description: "Total shots attempted onto exposed enemy players.", 
-      icon: Target 
+    meta: {
+      label: "Shots Attempts",
+      group: "Accuracy",
+      description: "Total shots attempted onto exposed enemy players.",
+      icon: Target,
+      advanced: true,
     },
     header: ({ column }) => (
       <SortableHeader
         label="Shot Attempts"
         align="center"
+        advanced={column.columnDef.meta?.advanced}
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
         sorted={column.getIsSorted()}
       />
@@ -283,11 +304,18 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "accuracy",
-    meta: { label: "Accuracy", group: "Accuracy", description: "Percentage of shots that landed.", icon: Percent },
+    meta: {
+      label: "Accuracy",
+      group: "Accuracy",
+      description: "Percentage of shots that landed.",
+      icon: Percent,
+      advanced: true,
+    },
     header: ({ column }) => (
       <SortableHeader
         label="Accuracy"
         align="center"
+        advanced={column.columnDef.meta?.advanced}
         onClick={() => column.toggleSorting(column.getIsSorted() !== "desc")}
         sorted={column.getIsSorted()}
       />
