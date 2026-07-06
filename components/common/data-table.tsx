@@ -124,6 +124,11 @@ export function DataTable<TData, TValue>({
                           <p className="mt-1 text-sm leading-relaxed text-slate-300 [text-wrap:wrap]">
                             {description}
                           </p>
+                          {meta?.advanced ? (
+                            <p className="mt-2 flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-[var(--accent-gold)]">
+                              <span aria-hidden>*</span> Advanced metric
+                            </p>
+                          ) : null}
                           {/* Future: methodology/documentation link goes here */}
                           <p className="mt-2 text-xs text-slate-500 italic">Click to sort</p>
                         </TooltipContent>
