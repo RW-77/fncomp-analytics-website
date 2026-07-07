@@ -65,7 +65,7 @@ export function MatchesClient({ matches }: { matches: Match[] }) {
   // selecting a match only swaps the viewer's content — no layout shift, and the
   // list never moves. Desktop = two-column grid; mobile = a single stacked column.
   return (
-    <div className="grid grid-cols-1 gap-4 lg:h-[calc(100dvh-15rem)] lg:min-h-[520px] lg:max-h-[760px] lg:grid-cols-[320px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-4 lg:h-[calc(100dvh-8rem)] lg:min-h-[800px] lg:max-h-[1400px] lg:grid-cols-[320px_minmax(0,1fr)]">
       {/* Match rail — scrollable column of cards */}
       <div className="flex min-h-0 flex-col gap-2 lg:overflow-y-auto lg:pr-1">
         {matches.length === 0 ? (
