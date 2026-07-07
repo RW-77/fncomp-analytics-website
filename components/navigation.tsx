@@ -1,8 +1,8 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -24,17 +24,17 @@ export function Navigation() {
           wide ? "max-w-[1800px] px-4 md:px-14" : "max-w-7xl px-4 sm:px-6 lg:px-8"
         )}
       >
-        <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
-            <BarChart3 className="size-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold tracking-[0.18em] text-white">
-              FNANALYTICS
-            </span>
-            <span className="block truncate text-[10px] uppercase tracking-[0.24em] text-slate-500">
-              Competitive Fortnite
-            </span>
+        <Link href="/" className="flex min-w-0 items-center gap-0.5">
+          <Image
+            src="/fnanalytics_logo.png"
+            alt="FNAnalytics"
+            width={38}
+            height={38}
+            className="size-9 shrink-0"
+            priority
+          />
+          <span className="font-[family-name:var(--font-sora)] truncate text-xl font-bold text-white">
+            FNAnalytics
           </span>
         </Link>
 
