@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { getPreviewPlayerStats } from "@/lib/stats"
 import { prisma } from "@/lib/prisma"
 import {
+  CUMULATIVE_DAY,
   compareTournamentRegions,
   getTournamentDisplayTitle,
 } from "@/lib/tournaments"
@@ -84,6 +85,19 @@ async function getHomepagePreview() {
       )
     : eventWindows
 
+  // Build the canonical players URL up front so the widget links straight to it
+  // (no redirect hops). `day=cumulative` is only canonical when the tournament
+  // actually has day_index values — otherwise the players page strips it — so
+  // mirror that resolution here.
+  const hasDays = regionEventWindows.some(
+    (eventWindow) => eventWindow.day_index !== null
+  )
+  const linkParams = new URLSearchParams()
+  if (previewRegion) linkParams.set("region", previewRegion)
+  if (hasDays) linkParams.set("day", CUMULATIVE_DAY)
+  const linkQuery = linkParams.toString()
+  const href = `/tournaments/${tournamentId}/players${linkQuery ? `?${linkQuery}` : ""}`
+
   const eventWindowIds = regionEventWindows.map(
     (eventWindow) => eventWindow.event_window_id
   )
@@ -109,7 +123,7 @@ async function getHomepagePreview() {
     }))
 
   return {
-    tournamentId,
+    href,
     title: getTournamentDisplayTitle(tournament),
     region: previewRegion,
     trackedPlayers: statsRows.length.toLocaleString(),
@@ -173,7 +187,7 @@ export default async function Home() {
 
         {preview ? (
           <Link
-            href={`/tournaments/${preview.tournamentId}`}
+            href={preview.href}
             className="group block overflow-hidden rounded-xl bg-[#141d30] shadow-[0_24px_80px_rgba(2,6,23,0.45)] transition-colors hover:bg-[#16203552]"
           >
             <div className="border-b border-white/[0.06] px-5 py-4">
