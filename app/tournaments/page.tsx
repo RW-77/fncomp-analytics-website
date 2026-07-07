@@ -157,20 +157,10 @@ export default async function TournamentsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <section className="mb-6 rounded-2xl border border-white/8 bg-[#0b1321]/80 px-5 py-5 shadow-[0_20px_60px_rgba(2,6,23,0.24)]">
-        <div className="space-y-2">
-          <div className="text-[11px] font-medium uppercase tracking-[0.24em] text-sky-200">
-            Tournament Library
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Tournaments
-          </h1>
-          <p className="max-w-2xl text-sm leading-6 text-slate-400">
-            Browse tournaments by region and day before drilling into player-level stat tables.
-          </p>
-        </div>
-      </section>
 
+      <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl [font-family:var(--font-onest)]">
+        Tournaments
+      </h1>
       {tournamentCards.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/10 bg-[#0b1321]/60 px-6 py-10 text-center text-sm text-slate-400">
           No tournaments found.
