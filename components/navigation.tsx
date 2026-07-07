@@ -30,7 +30,7 @@ export function Navigation() {
             alt="FNAnalytics"
             width={38}
             height={38}
-            className="size-9 shrink-0"
+            className="size-9 shrink-0 -translate-y-[3px]"
             priority
           />
           <span className="font-[family-name:var(--font-sora)] truncate text-xl font-bold text-white">
