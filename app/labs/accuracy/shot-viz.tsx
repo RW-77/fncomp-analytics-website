@@ -163,26 +163,6 @@ function buildNodes(
 // --------------------------------------------------------------------------- #
 // 3D primitives
 // --------------------------------------------------------------------------- #
-function TubeSegment({
-  a, b, radius, color, opacity = 1,
-}: { a: THREE.Vector3; b: THREE.Vector3; radius: number; color: string; opacity?: number }) {
-  const { position, quaternion, height } = useMemo(() => {
-    const dir = new THREE.Vector3().subVectors(b, a)
-    const height = dir.length()
-    const position = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5)
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0), dir.clone().normalize(),
-    )
-    return { position, quaternion, height }
-  }, [a, b])
-  return (
-    <mesh position={position} quaternion={quaternion}>
-      <cylinderGeometry args={[radius, radius, height, 16]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} />
-    </mesh>
-  )
-}
-
 function ImpactPlane({ shot, tf, scale }: { shot: ShotScene; tf: Transform; scale: number }) {
   const bp = shot.build_plane
   const { position, quaternion, size, color } = useMemo(() => {
@@ -231,7 +211,6 @@ function Scene({
     [shot, tf, teamColors, scale, opts.neighborhood, opts.showOccluded],
   )
   const origin = useMemo(() => tf(shot.origin), [shot, tf])
-  const impact = useMemo(() => tf(shot.impact), [shot, tf])
   const dir = useMemo(() => {
     const d = new THREE.Vector3(shot.direction[0], shot.direction[2], shot.direction[1])
     return d.normalize()
@@ -245,7 +224,15 @@ function Scene({
     return Number.isFinite(m) ? m : origin.y - 1.5
   }, [nodes, origin])
 
+  // orientation of the tracer tube (its local +Y aligns with the shot dir);
+  // the tube grows from the origin to the bullet each frame.
+  const tracerQuat = useMemo(
+    () => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize()),
+    [dir],
+  )
+
   const bulletRef = useRef<THREE.Mesh>(null)
+  const tracerRef = useRef<THREE.Mesh>(null)
   const matRefs = useRef<(THREE.MeshStandardMaterial | null)[]>([])
   const tRef = useRef(0)
   const doneRef = useRef(false)
@@ -268,6 +255,12 @@ function Scene({
     if (bulletRef.current) {
       bulletRef.current.position.copy(origin).addScaledVector(dir, dist)
       bulletRef.current.visible = frac < 1
+    }
+    // grow the thick tracer from the origin up to the bullet (only the path
+    // already travelled is highlighted).
+    if (tracerRef.current) {
+      tracerRef.current.position.copy(origin).addScaledVector(dir, dist / 2)
+      tracerRef.current.scale.y = Math.max(dist, 1e-3)
     }
     nodes.forEach((n, i) => {
       const mat = matRefs.current[i]
@@ -314,7 +307,11 @@ function Scene({
       <Line
         points={[origin.clone().addScaledVector(dir, -rayLen), origin.clone().addScaledVector(dir, rayLen)]}
         color={RAY} lineWidth={1} transparent opacity={0.7} />
-      <TubeSegment a={origin} b={impact} radius={0.18} color={TRACER} />
+      {/* thick tracer, grown from the origin to the bullet in useFrame */}
+      <mesh ref={tracerRef} quaternion={tracerQuat}>
+        <cylinderGeometry args={[0.18, 0.18, 1, 16]} />
+        <meshBasicMaterial color={TRACER} />
+      </mesh>
       <mesh position={origin}>
         <sphereGeometry args={[0.9, 20, 16]} />
         <meshBasicMaterial color={TRACER} />
@@ -339,7 +336,9 @@ function Scene({
         <Grid
           position={[origin.x, groundY, origin.z]}
           args={[10, 10]} infiniteGrid cellSize={2} sectionSize={20}
-          cellColor="#22304a" sectionColor="#33507a" fadeDistance={140} fadeStrength={2}
+          cellColor="#46618c" sectionColor="#6f93c9"
+          cellThickness={1} sectionThickness={1.6}
+          fadeDistance={280} fadeStrength={1}
         />
       )}
     </>
@@ -373,7 +372,7 @@ export default function ShotViz({ demo }: { demo: Demo }) {
   const [playing, setPlaying] = useState(false)
   const [replayNonce, setReplayNonce] = useState(0)
   const [resetNonce, setResetNonce] = useState(0)
-  const [neighborhood, setNeighborhood] = useState(120)
+  const [neighborhood, setNeighborhood] = useState(250)
   const [showLabels, setShowLabels] = useState(true)
   const [showOccluded, setShowOccluded] = useState(true)
   const [gridlines, setGridlines] = useState(true)
@@ -383,6 +382,22 @@ export default function ShotViz({ demo }: { demo: Demo }) {
   const teamColors = useMemo(() => teamColorMap(demo), [demo])
   const shot = demo.shots[shotIndex]
   const initialCam = useMemo(() => overShoulder(demo.shots[0], tf), [demo, tf])
+
+  // Running accuracy over the shots seen so far (up to and including the current
+  // one). A shot is an "attempt" if it hit a player or was attributed to one;
+  // "hits" are the direct hits. Accuracy = hits / attempts — 4/6 = 66.7% here.
+  const stats = useMemo(() => {
+    let attempts = 0
+    let hits = 0
+    for (let i = 0; i <= shotIndex; i++) {
+      const s = demo.shots[i]
+      if (s.direct_hit || s.recipient_id != null) {
+        attempts++
+        if (s.direct_hit) hits++
+      }
+    }
+    return { attempts, hits, misses: attempts - hits, acc: attempts ? (hits / attempts) * 100 : 0 }
+  }, [demo, shotIndex])
 
   const goto = (i: number) => {
     setShotIndex(((i % demo.shots.length) + demo.shots.length) % demo.shots.length)
@@ -419,7 +434,10 @@ export default function ShotViz({ demo }: { demo: Demo }) {
 
       {/* --- top-left: shot info --------------------------------------------- */}
       <Card className="absolute left-4 top-4 max-w-xs gap-1 border-white/10 bg-black/55 p-4 backdrop-blur">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">{demo.title}</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">{demo.title}</div>
+          <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Shot {shotIndex + 1}</span>
+        </div>
         <div className="text-lg font-semibold">{shot.actor_username}</div>
         <div className="font-mono text-xs text-muted-foreground">{cleanWeapon(shot.weapon_id)} · t={shot.game_time_seconds.toFixed(2)}s</div>
         <div className={`mt-1 text-sm font-medium ${outcomeColor}`}>{outcome}</div>
@@ -433,6 +451,19 @@ export default function ShotViz({ demo }: { demo: Demo }) {
             )}
           </div>
         )}
+      </Card>
+
+      {/* --- top-center: running accuracy ----------------------------------- */}
+      <Card className="absolute left-1/2 top-4 -translate-x-1/2 flex-row items-center gap-4 border-white/10 bg-black/55 px-5 py-3 backdrop-blur">
+        <div className="text-center">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Accuracy</div>
+          <div className="text-2xl font-bold tabular-nums leading-tight">{stats.acc.toFixed(1)}%</div>
+        </div>
+        <div className="flex flex-col gap-0.5 text-xs leading-tight">
+          <span><span className="font-semibold tabular-nums text-emerald-300">{stats.hits}</span> <span className="text-muted-foreground">hits</span></span>
+          <span><span className="font-semibold tabular-nums text-amber-300">{stats.misses}</span> <span className="text-muted-foreground">misses</span></span>
+          <span className="text-muted-foreground"><span className="tabular-nums">{stats.attempts}</span> attempts</span>
+        </div>
       </Card>
 
       {/* --- top-right: options --------------------------------------------- */}
