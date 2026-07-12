@@ -53,6 +53,16 @@ export interface ShotScene {
   build_plane: BuildPlane | null
   focus: Vec3
   suggested_scale: number
+  // seconds from the demo timeline's window start (set by the packer).
+  t_rel: number
+}
+
+// A player's sampled position track over the demo window: [t_rel_s, x, y, z].
+export interface Track {
+  epic_id: string
+  username: string
+  team: number
+  samples: [number, number, number, number][]
 }
 
 export interface Demo {
@@ -62,7 +72,9 @@ export interface Demo {
   match_id: string
   actor_username: string
   window: [number, number] | null
+  duration: number | null
   demo_origin: Vec3
   scale: number
+  tracks: Track[]
   shots: ShotScene[]
 }
