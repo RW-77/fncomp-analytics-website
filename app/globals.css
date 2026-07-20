@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
+@source "../node_modules/fumadocs-ui/dist/**/*.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -129,6 +132,33 @@
   -webkit-text-fill-color: transparent;
   color: transparent;
   filter: drop-shadow(0 0 22px rgba(227, 201, 126, 0.28));
+}
+
+/*
+ * Fumadocs sits below the site <Navigation /> instead of owning the viewport,
+ * so it has to be told how much vertical space is taken above it.
+ *
+ * --fd-banner-height is Fumadocs' hook for content rendered above the docs
+ * layout: it seeds --fd-docs-row-1, which --fd-docs-row-2/3 build on. Setting
+ * it shifts every sticky offset (sidebar, TOC, floating collapse button) down
+ * by the nav's height in one go.
+ *
+ * Keep --site-nav-height in sync with the real height of <Navigation />.
+ */
+:root {
+  --site-nav-height: 57px;
+}
+
+#nd-docs-layout {
+  --fd-banner-height: var(--site-nav-height);
+
+  /*
+   * Leave --fd-docs-height at its 100dvh default: Fumadocs sizes sticky children
+   * as calc(--fd-docs-height - --fd-docs-row-N), so it already subtracts the
+   * banner offset. Subtracting it here too made the sidebar short by one nav.
+   * Only the container's own min-height needs to fit below the nav.
+   */
+  min-height: calc(100dvh - var(--site-nav-height));
 }
 
 @layer base {
