@@ -19,8 +19,12 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "collections/*": ["./.source/*"]
     }
+  },
+  "mdx": {
+    "plugins": ["remark-math"]
   },
   "include": [
     "next-env.d.ts",
@@ -28,7 +32,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "**/*.mdx"
   ],
   "exclude": ["node_modules"]
 }
