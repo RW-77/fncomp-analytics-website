@@ -424,7 +424,15 @@ function CameraRig({ shot, tf, resetNonce, controls }: {
 // --------------------------------------------------------------------------- #
 // Top-level viewer
 // --------------------------------------------------------------------------- #
-export default function ShotViz({ demo }: { demo: Demo }) {
+export default function ShotViz({
+  demo, embedded = false, height,
+}: {
+  demo: Demo
+  /** Compact chrome for embedding in a narrow column (e.g. the docs). */
+  embedded?: boolean
+  /** CSS height; defaults to the viewport on the lab page, 520px when embedded. */
+  height?: string
+}) {
   const tf = useMemo(() => makeTransform(demo.demo_origin, demo.scale), [demo])
   const teamColors = useMemo(() => teamColorMap(demo), [demo])
   const duration = demo.duration ?? demo.shots[demo.shots.length - 1].t_rel + 0.5
@@ -499,7 +507,10 @@ export default function ShotViz({ demo }: { demo: Demo }) {
   const detailOpts = { neighborhood, showOccluded, showLabels }
 
   return (
-    <div className="relative h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-[#0a0e17]">
+    <div
+      className={`relative w-full overflow-hidden bg-[#0a0e17] ${embedded ? 'not-prose rounded-xl border border-white/10' : ''}`}
+      style={{ height: height ?? (embedded ? '520px' : 'calc(100vh - 3.5rem)') }}
+    >
       <Canvas camera={{ position: initialCam.pos.toArray(), fov: 45, near: 0.1, far: 5000 }} gl={{ antialias: true }} dpr={[1, 2]}>
         <color attach="background" args={[BG]} />
         <ambientLight intensity={0.55} />
@@ -533,62 +544,67 @@ export default function ShotViz({ demo }: { demo: Demo }) {
       </Canvas>
 
       {/* --- top-left: shot info -------------------------------------------- */}
-      <Card className="absolute left-4 top-4 max-w-xs gap-1 border-white/10 bg-black/55 p-4 backdrop-blur">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{demo.title}</div>
+      <Card className={`absolute left-3 top-3 border-white/10 bg-black/55 backdrop-blur ${embedded ? 'max-w-[13.5rem] gap-0.5 p-3' : 'left-4 top-4 max-w-xs gap-1 p-4'}`}>
+        {!embedded && <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{demo.title}</div>}
         <div className="mb-1 flex items-baseline gap-2">
-          <span className="rounded-md bg-primary px-2.5 py-1 text-lg font-bold uppercase leading-none tracking-wide text-primary-foreground shadow-sm">Shot {activeIndex + 1}</span>
-          <span className="text-sm text-muted-foreground">of {demo.shots.length}</span>
+          <span className={`rounded-md bg-primary font-bold uppercase leading-none tracking-wide text-primary-foreground shadow-sm ${embedded ? 'px-2 py-0.5 text-sm' : 'px-2.5 py-1 text-lg'}`}>Shot {activeIndex + 1}</span>
+          <span className={`text-muted-foreground ${embedded ? 'text-xs' : 'text-sm'}`}>of {demo.shots.length}</span>
         </div>
-        <div className="text-lg font-semibold">{shot.actor_username}</div>
-        <div className="font-mono text-xs text-muted-foreground">{cleanWeapon(shot.weapon_id)} · t={shot.game_time_seconds.toFixed(2)}s</div>
-        <div className={`mt-1 text-sm font-medium ${outcomeColor}`}>{outcome}</div>
+        {!embedded && <div className="text-lg font-semibold">{shot.actor_username}</div>}
+        {!embedded && <div className="font-mono text-xs text-muted-foreground">{cleanWeapon(shot.weapon_id)} · t={shot.game_time_seconds.toFixed(2)}s</div>}
+        <div className={`mt-1 font-medium ${embedded ? 'text-xs' : 'text-sm'} ${outcomeColor}`}>{outcome}</div>
         {shot.recipient_username && (
-          <div className="mt-1 text-sm">
+          <div className={embedded ? 'mt-0.5 text-[11px] leading-snug' : 'mt-1 text-sm'}>
             <span className="text-muted-foreground">target </span>
             <span className="font-medium">{shot.recipient_username}</span>
             <span className="text-muted-foreground"> · {(shot.dist_to_impact * demo.scale).toFixed(1)} m</span>
             {shot.passing_distance != null && <span className="text-muted-foreground"> · off-center {(shot.passing_distance * demo.scale).toFixed(2)} m</span>}
           </div>
         )}
-        {!parked && <div className="mt-1 text-[11px] italic text-muted-foreground">playing — pause on a shot for full geometry</div>}
+        {!parked && !embedded && <div className="mt-1 text-[11px] italic text-muted-foreground">playing — pause on a shot for full geometry</div>}
       </Card>
 
-      {/* --- top-center: running accuracy ----------------------------------- */}
-      <Card className="absolute left-1/2 top-4 -translate-x-1/2 flex-row items-center gap-4 border-white/10 bg-black/55 px-5 py-3 backdrop-blur">
+      {/* --- running accuracy (top-centre normally, top-right when embedded) -- */}
+      <Card className={`absolute flex-row items-center border-white/10 bg-black/55 backdrop-blur ${embedded ? 'right-3 top-3 gap-3 px-3 py-2' : 'left-1/2 top-4 -translate-x-1/2 gap-4 px-5 py-3'}`}>
         <div className="text-center">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Accuracy</div>
-          <div className="text-2xl font-bold tabular-nums leading-tight">{stats.acc == null ? '—' : `${stats.acc.toFixed(1)}%`}</div>
+          <div className={`font-bold tabular-nums leading-tight ${embedded ? 'text-lg' : 'text-2xl'}`}>{stats.acc == null ? '—' : `${stats.acc.toFixed(1)}%`}</div>
         </div>
-        <div className="flex flex-col gap-0.5 text-xs leading-tight">
+        <div className={`flex flex-col gap-0.5 leading-tight ${embedded ? 'text-[11px]' : 'text-xs'}`}>
           <span><span className="font-semibold tabular-nums text-emerald-300">{stats.hits}</span> <span className="text-muted-foreground">hits</span></span>
           <span><span className="font-semibold tabular-nums text-amber-300">{stats.misses}</span> <span className="text-muted-foreground">misses</span></span>
           <span className="text-muted-foreground"><span className="tabular-nums">{stats.attempts}</span> attempts</span>
         </div>
       </Card>
 
-      {/* --- top-right: options --------------------------------------------- */}
-      <Card className="absolute right-4 top-4 w-56 gap-3 border-white/10 bg-black/55 p-4 backdrop-blur">
-        <label className="flex items-center gap-2 text-sm"><Checkbox checked={gridlines} onCheckedChange={(v) => setGridlines(!!v)} /> Gridlines</label>
-        <label className="flex items-center gap-2 text-sm"><Checkbox checked={showLabels} onCheckedChange={(v) => setShowLabels(!!v)} /> Labels</label>
-        <label className="flex items-center gap-2 text-sm"><Checkbox checked={showOccluded} onCheckedChange={(v) => setShowOccluded(!!v)} /> Occluded players</label>
-        <div className="mt-1">
-          <div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Range shown</span><span>{neighborhood} m</span></div>
-          <Slider value={[neighborhood]} min={30} max={300} step={10} onValueChange={(v) => setNeighborhood(v[0])} />
-        </div>
-        <Button variant="secondary" size="sm" className="mt-1" onClick={() => setResetNonce((n) => n + 1)}>Reset view</Button>
-      </Card>
+      {/* --- top-right: options (full page only) ----------------------------- */}
+      {!embedded && (
+        <Card className="absolute right-4 top-4 w-56 gap-3 border-white/10 bg-black/55 p-4 backdrop-blur">
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={gridlines} onCheckedChange={(v) => setGridlines(!!v)} /> Gridlines</label>
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={showLabels} onCheckedChange={(v) => setShowLabels(!!v)} /> Labels</label>
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={showOccluded} onCheckedChange={(v) => setShowOccluded(!!v)} /> Occluded players</label>
+          <div className="mt-1">
+            <div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Range shown</span><span>{neighborhood} m</span></div>
+            <Slider value={[neighborhood]} min={30} max={300} step={10} onValueChange={(v) => setNeighborhood(v[0])} />
+          </div>
+          <Button variant="secondary" size="sm" className="mt-1" onClick={() => setResetNonce((n) => n + 1)}>Reset view</Button>
+        </Card>
+      )}
 
-      {/* --- legend --------------------------------------------------------- */}
-      <div className="absolute bottom-32 left-4 flex flex-col gap-1 rounded-md border border-white/10 bg-black/45 p-3 text-xs backdrop-blur">
-        <LegendDot color={ACTOR_HL} label="shooter" />
-        <LegendDot color={RECIPIENT_HL} label="algorithm's target" />
-        <LegendDot color={TRACER} label="shot / tracer" />
-        <LegendDot color={BUILD} label="build" />
-        <LegendDot color={TERRAIN} label="terrain" />
-      </div>
+      {/* --- legend (full page only) ----------------------------------------- */}
+      {!embedded && (
+        <div className="absolute bottom-32 left-4 flex flex-col gap-1 rounded-md border border-white/10 bg-black/45 p-3 text-xs backdrop-blur">
+          <LegendDot color={ACTOR_HL} label="shooter" />
+          <LegendDot color={RECIPIENT_HL} label="algorithm's target" />
+          <LegendDot color={TRACER} label="shot / tracer" />
+          <LegendDot color={BUILD} label="build" />
+          <LegendDot color={TERRAIN} label="terrain" />
+        </div>
+      )}
+
 
       {/* --- bottom: timeline + transport ----------------------------------- */}
-      <div className="absolute bottom-4 left-1/2 w-[min(680px,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-white/10 bg-black/55 px-4 py-3 backdrop-blur">
+      <div className={`absolute left-1/2 -translate-x-1/2 rounded-xl border border-white/10 bg-black/55 backdrop-blur ${embedded ? 'bottom-3 w-[calc(100%-1.5rem)] px-3 py-2' : 'bottom-4 w-[min(680px,calc(100%-2rem))] px-4 py-3'}`}>
         <div className="relative mb-2">
           <Slider value={[Math.min(tDisplay, duration)]} min={0} max={duration} step={0.01} onValueChange={(v) => scrub(v[0])} />
           <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2">
