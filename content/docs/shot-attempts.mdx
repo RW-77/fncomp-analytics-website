@@ -1,0 +1,125 @@
+---
+title: Shot Attempts
+description: Detecting and classifying which shots were onto exposed enemy players
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Overview
+
+**Shot attempts** is an advanced statistic that tells us how many times a player
+fired shots at exposed enemy players.
+
+It directly factors into accuracy calculations.
+
+<Callout type="info" title={`The "exposed" constraint`}>
+There's the additional constraint that a target should be
+"hittable" (exposed enough) so that the shooter had a valid chance to hit them.
+If the target is fully boxed up, the shooter's bullet hitting their wall should
+not lower their accuracy.
+</Callout>
+
+Ray-sphere intersection checks are used to detect if a shot was fired at an
+opponent player, filtering out stray shots.
+
+# Approach
+
+The key challenge is determining for each shot, whether it was an attempt onto
+an exposed enemy player, or not.
+
+> How do we know whether a shot was aimed at a player?
+
+## Case: The shot hits an enemy player
+
+To start off with, if the shot actually **hits** an enemy player, then we know
+he shooter was trying to hit them, and that the target was exposed. So we can
+automatically classify the shot as a **shot attempt**.
+
+## Case: The shot does not hit anyone
+
+The idea here is that if player A was trying to shoot player B, their shot
+should pass reasonably close to player B, even if they did not directly hit
+them.
+
+The approach is to surround each opponent player on the map with a spherical
+hitbox of small radius (1-3m). The spherical hitbox is intentionally larger than 
+the player so it almost always captures shots that pass very close by, detecting
+even poorly aimed shots.
+
+We classify a shot as a **shot attempt** if the shot path intersects their
+sphere and terminates behind them.
+
+![Ray passing through a hitbox sphere](/images/docs/intersecting_hitbox_example.png)
+
+If a shot does not intersect the spherical hitbox of any player, it is not a shot attempt.
+
+![Ray passing through a hitbox sphere](/images/docs/missed_hitbox_example.png)
+
+### Bullet Termination
+
+Knowing the ending point of a shot is important.
+
+We cannot consider every player along the direction of the shot.
+
+![Ray hitting mountain](/images/docs/mountain_example.png)
+
+Even if the infinitely extending shot ray intersects a player's sphere, if the 
+shot terminated at a point closer to the shot origin, the player either was not
+the intended target or was not *exposed*.
+
+This prevents players behind buildings, structures, and terrain from being
+considered as potential targets, causing the shot to be misclassified as a **shot
+attempt**.
+
+![Ray hitting build](/images/docs/shot-blocked-by-build.png)
+
+Even if the shot intersects the player's sphere before the termination point,
+the position of the player is still further from the shot origin than the shot
+end.
+
+![Ray hitting build inside hitbox](/images/docs/shot-blocked-by-build-in-hitbox.png)
+
+If $\mathrm{dist}(\text{shot origin}, \text{player}) < \mathrm{dist}(\text{shot
+origin}, \text{shot end})$, the shot is classified as a shot attempt and dropped
+otherwise.
+
+# Casework
+| Shot | Ray clips a hitbox? | Target closer than bullet end? | Verdict |
+| - | - | - | - |
+| Hits an opponent | - | - | Attempt |
+| Misses | No | - | Stray shot - dropped |
+| Misses | Yes | No, something blocked it | Blocked - dropped |
+| Misses | Yes | Yes | Attempt |
+
+# Interactive Examples
+
+The demo below replays a burst of shots from a real tournament match. Press
+**play** to watch them fire — each shot pauses on its geometry so you can see the
+shot ray, the target's spherical hitbox, and the running accuracy. Drag to orbit,
+scroll to zoom, and use the timeline to step between individual shots.
+
+<AccuracyDemo />
+
+For the full-screen version with extra controls — gridlines, labels, occluded
+players, and adjustable range — open the [interactive lab](/labs/accuracy).
+
+# Implementation
+
+Every shot in Fortnite has a point of origin $\mathbf{A}$ and a direction 
+$\mathbf{b}$, both of which exist in three-dimensional space.
+
+The shot path is then defined by the parametric function
+```math
+\mathbf{P}(t) = \mathbf{A} + t\mathbf{b}
+```
+where $\mathbf{P}$ is the 3D point along the path of the shot at time $t$.
+
+
+## Ray-Sphere Intersection
+
+Checking whether a line $\mathbf{P}(t) = \mathbf{A} + t\mathbf{d}$ intersects a
+sphere of radius $r$ centered at the point $(C_x, C_y, C_z)$,
+```math
+(C_x - x)^2 + (C_y - y)^2 + (C_z - z)^2 = r^2
+```
+is a straightforward calculation and constant-time operation.

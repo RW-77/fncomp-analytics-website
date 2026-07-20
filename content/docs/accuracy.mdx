@@ -1,0 +1,45 @@
+---
+title: Accuracy
+description: How FNAnalytics uniquely and accurately calculates player shot accuracy
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+ 
+# Why Traditional Accuracy Fails
+
+One might assume calculating accuracy to be straighforward. Other websites use a
+simple ratio of hits to total shots taken.
+
+```math
+\text{accuracy} = \frac{\text{total hits}}{\text{total shots}}
+```
+
+A player can take thousands of shots in a match, but only a subset of those
+are directed at exposed enemy players. A player might shoot at terrain, builds, trees,
+NPCs, accidentally misclick, or direct stray shots into the environment.
+
+Including these types of shots in our denominator $\text{total shots}$ 
+artificially reduces a player's $\text{accuracy}$, causing their aim to appear
+worse than it really is.
+
+Why should shots that were never intended to hit another player lower the
+shooter's accuracy?
+
+# True Accuracy
+
+True accuracy considers only shots that were aimed at exposed enemy players.
+
+```math
+\text{true accuracy} = \frac{\text{total hits}}{\text{total shot attempts onto
+ players}}
+```
+
+This requires the calculation of a new statistic, *shot attempts onto players,* 
+which we'll refer to as simply *shot attempts*.
+
+<Callout type="info" title="What counts as an attempt?">
+The denominator is calculated via a standalone spatial metric. Learn about the geometric tracking engine on our [Shot Attempts Page](/docs/shot-attempts).
+</Callout>
+
+Understanding what consistutes a **shot attempt** is crucial to understanding
+true accuracy and other advanced statistics.
