@@ -38,6 +38,9 @@ declare module "@tanstack/react-table" {
     // Flags a derived/composite metric (vs. a raw count) so the header renders a
     // gold asterisk and the tooltip an "Advanced metric" line.
     advanced?: boolean
+    // Fumadocs page explaining this stat, e.g. "/docs/accuracy". When set, the
+    // header hover-card becomes a link to it. Omit for stats without a doc page.
+    docHref?: string
   }
 }
 
@@ -144,7 +147,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "eliminations",
-    meta: { label: "Elims", group: "Combat", description: "Total eliminations.", icon: Skull },
+    meta: { label: "Elims", group: "Combat", description: "Total eliminations.", icon: Skull, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Elims"
@@ -161,7 +164,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "damageDealt",
-    meta: { label: "DMG Dealt", group: "Damage", description: "Total damage dealt to opponents.", icon: Sword },
+    meta: { label: "DMG Dealt", group: "Damage", description: "Total damage dealt to opponents.", icon: Sword, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="DMG Dealt"
@@ -178,7 +181,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "damageReceived",
-    meta: { label: "DMG Received", group: "Damage", description: "Total damage taken.", icon: Shield },
+    meta: { label: "DMG Received", group: "Damage", description: "Total damage taken.", icon: Shield, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="DMG Received"
@@ -195,7 +198,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "damageRatio",
-    meta: { label: "DMG Ratio", group: "Damage", description: "Damage dealt divided by damage received.", icon: Scale },
+    meta: { label: "DMG Ratio", group: "Damage", description: "Damage dealt divided by damage received.", icon: Scale, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="DMG Ratio"
@@ -215,7 +218,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "shotsTaken",
-    meta: { label: "Shots", group: "Accuracy", description: "Total shots taken.", icon: Crosshair },
+    meta: { label: "Shots", group: "Accuracy", description: "Total shots taken.", icon: Crosshair, docHref: "docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Shots"
@@ -238,6 +241,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       description: "Total damage contribution onto team eliminations.",
       icon: PieChart,
       advanced: true,
+      docHref: "/docs/dce",
     },
     header: ({ column }) => (
       <SortableHeader
@@ -262,6 +266,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       description: "Assists onto team eliminations.",
       icon: Users,
       advanced: true,
+      docHref: "/docs/assists"
     },
     header: ({ column }) => (
       <SortableHeader
@@ -286,6 +291,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       description: "Total shots attempted onto exposed enemy players.",
       icon: Target,
       advanced: true,
+      docHref: "/docs/shot-attempts",
     },
     header: ({ column }) => (
       <SortableHeader
@@ -310,6 +316,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
       description: "Percentage of shots that landed.",
       icon: Percent,
       advanced: true,
+      docHref: "/docs/accuracy",
     },
     header: ({ column }) => (
       <SortableHeader
@@ -331,7 +338,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "timeAlive",
-    meta: { label: "Time Alive", group: "Utility", description: "Total time spent alive, summed across matches.", icon: Timer },
+    meta: { label: "Time Alive", group: "Utility", description: "Total time spent alive, summed across matches.", icon: Timer, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Time Alive"
@@ -348,7 +355,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "buildsPlaced",
-    meta: { label: "Builds Placed", group: "Utility", description: "Structures placed.", icon: Hammer },
+    meta: { label: "Builds Placed", group: "Utility", description: "Structures placed.", icon: Hammer, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Builds Placed"
@@ -365,7 +372,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "rebooted",
-    meta: { label: "Rebooted", group: "Utility", description: "Times this player was rebooted back into the match.", icon: RotateCcw },
+    meta: { label: "Rebooted", group: "Utility", description: "Times this player was rebooted back into the match.", icon: RotateCcw, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Rebooted"
@@ -382,7 +389,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "rebootedOthers",
-    meta: { label: "Rebooted Others", group: "Utility", description: "Times this player rebooted a teammate.", icon: HeartPulse },
+    meta: { label: "Rebooted Others", group: "Utility", description: "Times this player rebooted a teammate.", icon: HeartPulse, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Rebooted Others"
@@ -399,7 +406,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "revived",
-    meta: { label: "Revived", group: "Utility", description: "Times this player was revived from a knockdown.", icon: PersonStanding },
+    meta: { label: "Revived", group: "Utility", description: "Times this player was revived from a knockdown.", icon: PersonStanding, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Revived"
@@ -416,7 +423,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "revivedOthers",
-    meta: { label: "Revived Others", group: "Utility", description: "Times this player revived a knocked teammate.", icon: HandHeart },
+    meta: { label: "Revived Others", group: "Utility", description: "Times this player revived a knocked teammate.", icon: HandHeart, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Revived Others"

@@ -2,6 +2,8 @@
 /* eslint-disable react-hooks/incompatible-library */
 
 import * as React from "react"
+import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -26,11 +28,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -93,7 +94,6 @@ export function DataTable<TData, TValue>({
         <ColumnManager table={table} />
       </div>
 
-      <TooltipProvider delayDuration={200}>
       <Table className="w-auto table-fixed" containerClassName="max-h-[72vh] overflow-y-auto">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -105,6 +105,22 @@ export function DataTable<TData, TValue>({
                   : flexRender(header.column.columnDef.header, header.getContext())
                 const description = header.isPlaceholder ? undefined : meta?.description
 
+                // Shared card body (title + description + optional advanced note),
+                // reused whether or not the card links out to docs.
+                const cardBody = description ? (
+                  <>
+                    <p className="text-sm font-semibold text-white">{meta?.label}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-300 [text-wrap:wrap]">
+                      {description}
+                    </p>
+                    {meta?.advanced ? (
+                      <p className="mt-2 flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-[var(--accent-gold)]">
+                        <span aria-hidden>*</span> Advanced metric
+                      </p>
+                    ) : null}
+                  </>
+                ) : null
+
                 return (
                   <TableHead
                     key={header.id}
@@ -112,27 +128,33 @@ export function DataTable<TData, TValue>({
                     className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#1c2942]/95 px-2 py-1 align-middle backdrop-blur supports-[backdrop-filter]:bg-[#1c2942]/85 first:pl-4 last:pr-4"
                   >
                     {description ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
                           <span className="inline-flex">{headerEl}</span>
-                        </TooltipTrigger>
-                        <TooltipContent
+                        </HoverCardTrigger>
+                        <HoverCardContent
                           side="top"
-                          className="max-w-xs rounded-lg border border-white/[0.08] bg-[#0f1729] p-4 text-left text-slate-300 shadow-xl"
+                          className="max-w-xs rounded-lg border border-white/[0.08] bg-[#0f1729] p-0 text-left text-slate-300 shadow-xl"
                         >
-                          <p className="text-sm font-semibold text-white">{meta?.label}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-slate-300 [text-wrap:wrap]">
-                            {description}
-                          </p>
-                          {meta?.advanced ? (
-                            <p className="mt-2 flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-[var(--accent-gold)]">
-                              <span aria-hidden>*</span> Advanced metric
-                            </p>
-                          ) : null}
-                          {/* Future: methodology/documentation link goes here */}
-                          <p className="mt-2 text-xs text-slate-500 italic">Click to sort</p>
-                        </TooltipContent>
-                      </Tooltip>
+                          {meta?.docHref ? (
+                            <Link
+                              href={meta.docHref}
+                              className="block rounded-lg p-4 transition-colors hover:bg-white/[0.04] focus-visible:bg-white/[0.04] focus-visible:outline-none"
+                            >
+                              {cardBody}
+                              <p className="mt-2 flex items-center gap-1 text-xs font-medium text-sky-400">
+                                View documentation
+                                <ArrowUpRight className="size-3.5" />
+                              </p>
+                            </Link>
+                          ) : (
+                            <div className="p-4">
+                              {cardBody}
+                              <p className="mt-2 text-xs text-slate-500 italic">Click to sort</p>
+                            </div>
+                          )}
+                        </HoverCardContent>
+                      </HoverCard>
                     ) : (
                       headerEl
                     )}
@@ -173,7 +195,6 @@ export function DataTable<TData, TValue>({
           )}
         </TableBody>
       </Table>
-      </TooltipProvider>
     </div>
   )
 }
