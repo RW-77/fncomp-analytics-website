@@ -1,10 +1,12 @@
 {
   "pages": [
-      "index", 
-      "basic-statistics", 
-      "dce", 
-      "shot-attempts", 
-      "accuracy", 
-      "..."
+    "index",
+    "---[BookOpen]Fundamentals---",
+    "basic-statistics",
+    "---[FlaskConical]Advanced Stats---",
+    "dce",
+    "shot-attempts",
+    "accuracy",
+    "..."
   ]
 }
