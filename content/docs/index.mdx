@@ -1,25 +1,65 @@
 ---
-title: Welcome
-description: Documentation for FNAnalytics — competitive Fortnite stats, replay analysis, and tournament tools.
+title: Introduction
+icon: Rocket
+description: A first look at FNAnalytics documentation
 ---
 
-Welcome to the **FNAnalytics** documentation. These docs cover how to read the
-stats, use the replay tools, and interpret tournament data across competitive
-Fortnite events.
+import { Network, SlidersHorizontal, ChartPie, Sigma, Target, Crosshair } from 'lucide-react'
 
-## What you'll find here
+import { Callout } from 'fumadocs-ui/components/callout';
 
-- **Basics** — how player stats (eliminations, damage, accuracy) are tracked.
-- **Advanced** — deeper mechanics like DCE and shot-attempt analysis.
-- **Tournaments** — how placement and points are calculated.
 
-## Quick start
+# Overview
 
-Pick a section from the sidebar on the left, or jump straight to a topic:
+Welcome to the **FNAnalytics** documentation. These docs primarily define and
+provide explanations for all statistics covered in the tournament pages.
 
-1. Read through the basics to understand the metrics.
-2. Load a replay to see events plotted on the map.
-3. Compare results across tournament regions.
+### Dive In
 
-> This is placeholder content added to preview the docs layout. Replace it with
-> your real documentation as you go.
+<Cards>
+  <Card
+    title="Basic Statistics"
+    href="/docs/basic-statistics"
+    description="Introduction to basic stat types, properties, and events."
+    icon={<Sigma className="text-amber-500"/>}
+  />
+  <Card
+    title="Shot Attempts"
+    href="/docs/shot-attempts"
+    description="Understand how FNAnalytics classifies shots fired at players
+    versus stray shots."
+    icon={<Crosshair className="text-blue-500"/>}
+  />
+  <Card
+    title="Accuracy"
+    href="/docs/accuracy"
+    description="True, geometry-based accuracy."
+    icon={<Target className="text-violet-500"/>}
+  />
+  <Card
+    title="Damange Contribution onto Eliminations"
+    href="/docs/dce"
+    description="Counting damage that directly leads to an elimination for the team."
+    icon={<ChartPie className="text-green-500"/>}
+  />
+  <Card
+    title="Advanced Statistics"
+    description="Dive deep into special stats like shot attempts and damage
+    contribution onto eliminations."
+    icon={<Network className="text-red-500"/>}
+  />
+  <Card
+    title="Filters and Windows"
+    href="/docs/filters"
+    description="Understand how FNAnalytics uses filters to answer time and
+    space aware questions."
+    icon={<SlidersHorizontal className="text-yellow-500"/>}
+  />
+</Cards>
+
+The docs also cover how to *analyze* and *interpret* tournament data. 
+
+<Callout type="info" title={`Purpose`}>
+The FNAnalytics docs are not traditional developer docs. They are useful
+reference but can also be used as a guide and educational resource.
+</Callout>
