@@ -28,6 +28,9 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: "FNAnalytics",
   description: "Track player performance, eliminations, and damage statistics across competitive Fortnite tournaments",
+  icons: {
+    icon: "/fnanalytics_logo.png",
+  },
 };
 
 export default function RootLayout({
