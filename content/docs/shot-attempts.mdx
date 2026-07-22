@@ -13,7 +13,7 @@ fired shots at exposed enemy players.
 It directly factors into accuracy calculations.
 
 <Callout type="info" title={`The "exposed" constraint`}>
-There's the additional constraint that a target should be
+There's the additional constraint that the opponent should be
 "hittable" (exposed enough) so that the shooter had a valid chance to hit them.
 If the target is fully boxed up, the shooter's bullet hitting their wall should
 not lower their accuracy.
@@ -39,7 +39,7 @@ automatically classify the shot as a **shot attempt**.
 
 The idea here is that if player A was trying to shoot player B, their shot
 should pass reasonably close to player B, even if they did not directly hit
-them.
+B.
 
 The approach is to surround each opponent player on the map with a spherical
 hitbox of small radius (1-3m). The spherical hitbox is intentionally larger than 
