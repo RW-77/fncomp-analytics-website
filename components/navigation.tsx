@@ -7,21 +7,32 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { href: "/", label: "Overview" },
+  { href: "/", label: "Home" },
   { href: "/tournaments", label: "Tournaments" },
+  { href: "/docs", label: "Docs" },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
   // Match the wider tournament workspace so the nav aligns with the page below it.
   const wide = pathname.startsWith("/tournaments/")
+  // On docs pages, mirror fumadocs' centered layout so the logo tracks the
+  // sidebar header ("FNAnalytics Docs") at every width. Fumadocs centers its
+  // grid (sidebar 268 + content 1016 + toc 268 = 1552px) and right-aligns the
+  // sidebar content against the left gutter; matching max-w + px-4 puts our
+  // logo on that same gutter+16px line.
+  const docs = pathname.startsWith("/docs")
 
   return (
     <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#08111f]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[#08111f]/72">
       <div
         className={cn(
-          "mx-auto flex h-14 items-center justify-between gap-3",
-          wide ? "max-w-[1800px] px-4 md:px-14" : "max-w-7xl px-4 sm:px-6 lg:px-8"
+          "flex h-14 items-center gap-6",
+          docs
+            ? "mx-auto max-w-[1552px] px-4"
+            : wide
+              ? "mx-auto max-w-[1800px] px-4 md:px-14"
+              : "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
         )}
       >
         <Link href="/" className="flex min-w-0 items-center gap-0.5">
@@ -38,30 +49,26 @@ export function Navigation() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-full border border-white/8 bg-white/[0.03] p-1">
-            {navItems.map((item) => {
-              const isActive =
-                item.href === "/"
-                  ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`)
+        <div className="flex items-center gap-3 sm:gap-5">
+          {navItems.map((item) => {
+            const isActive =
+              item.href === "/"
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(`${item.href}/`)
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-xs font-medium tracking-wide transition-colors",
-                    isActive
-                      ? "bg-white/[0.08] text-white"
-                      : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
-          </div>
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "rounded-md px-1 py-1.5 text-base font-semibold transition-colors",
+                  isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
         </div>
       </div>
     </nav>

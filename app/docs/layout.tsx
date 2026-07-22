@@ -16,7 +16,13 @@ export default function Layout({ children }: { children: ReactNode }) {
     <RootProvider theme={{ enabled: false }}>
       {/* Flat backdrop covering the body gradient, matching /tournaments/[id]. */}
       <div className="fixed inset-0 -z-10 bg-[#0a0f1a]" aria-hidden />
-      <DocsLayout tree={source.pageTree} nav={{ title: 'FNAnalytics Docs' }}>
+      {/* themeSwitch disabled: no light mode yet (root layout hardcodes dark), so
+          the sidebar-footer toggle has nothing to drive. */}
+      <DocsLayout
+        tree={source.pageTree}
+        nav={{ title: 'FNAnalytics Docs' }}
+        themeSwitch={{ enabled: false }}
+      >
         {children}
       </DocsLayout>
     </RootProvider>
