@@ -27,7 +27,7 @@ export function Navigation() {
     <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#08111f]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[#08111f]/72">
       <div
         className={cn(
-          "flex h-14 items-center gap-6",
+          "flex h-14 items-center gap-[1.6rem] sm:gap-[2.8rem]",
           docs
             ? "mx-auto max-w-[1552px] px-4"
             : wide
@@ -49,7 +49,7 @@ export function Navigation() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-3 sm:gap-5">
+        <div className="flex items-center gap-4 sm:gap-[1.6rem]">
           {navItems.map((item) => {
             const isActive =
               item.href === "/"
