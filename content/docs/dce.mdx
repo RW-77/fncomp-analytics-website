@@ -133,21 +133,21 @@ Player X starts at full health and shield.
 
 <HealthBar />
 
-**Player A** hits X for 70, tearing through most of their shield. The **storm**
-then deals another 30, finishing off the shield. X is left with 0 shield and
+**Player A** hits X for 70, tearing through most of their shield. Say that an
+NPC then deals another 30, finishing off the shield. X is left with 0 shield and
 full 100 health.
 
 <HealthBar
   events={[
     { dealer: 'Player A', amount: 70 },
-    { dealer: 'Storm', amount: 30, environment: true },
+    { dealer: 'NPC', amount: 30, environment: true },
   ]}
 />
 
-X's damage record now holds a single player — **Player A**, with 70. The storm's
-30 is real damage, but the storm is not a player, so it can never earn credit.
+X's damage record now holds a single player — **Player A**, with 70. The NPC's
+30 is real damage, but the NPC is not a player, so it can never earn credit.
 
-## The heal
+#### Heal event
 
 X pops **two Minis**, refilling their shield by 50 (each Mini gives 25). Because
 X did not top back up to full, every contributor in the record is rescaled.
@@ -166,7 +166,7 @@ Every contribution is multiplied by this factor. Player A's 70 becomes 35:
 <HealthBar
   events={[
     { dealer: 'Player A', amount: 35 },
-    { dealer: 'Storm', amount: 15, environment: true },
+    { dealer: 'NPC', amount: 15, environment: true },
   ]}
 />
 
@@ -174,11 +174,11 @@ Every contribution is multiplied by this factor. Player A's 70 becomes 35:
 Of the 100 that was missing, 30 came from the storm, not from Player A. We
 divide by the full 100 so the heal is shared across *all* the missing health. If
 we had divided by Player A's 70 alone, A would have been cut all the way to 20,
-punished for damage the storm dealt. Dividing by the total missing health keeps
+punished for damage the NPC dealt. Dividing by the total missing health keeps
 their credit fair at 35.
 </Callout>
 
-## The finish
+#### Player X is eliminated
 
 X is now back up to 150. **Player B** deals 90 and **Player C** deals 60,
 depleting the rest of X's health and eliminating them.
@@ -190,7 +190,7 @@ heal is affected.
 <HealthBar
   events={[
     { dealer: 'Player A', amount: 35 },
-    { dealer: 'Storm', amount: 15, environment: true },
+    { dealer: 'NPC', amount: 15, environment: true },
     { dealer: 'Player B', amount: 90 },
     { dealer: 'Player C', amount: 60 },
   ]}
@@ -203,4 +203,4 @@ the damage still standing on X:
 - **Player B** — 90
 - **Player C** — 60
 
-The storm's damage is dropped, since it never counts toward a player's DCE.
+The NPC's damage is dropped, since it never counts toward a player's DCE.
