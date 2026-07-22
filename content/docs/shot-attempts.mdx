@@ -32,7 +32,7 @@ an exposed enemy player, or not.
 ## Case: The shot hits an enemy player
 
 To start off with, if the shot actually **hits** an enemy player, then we know
-he shooter was trying to hit them, and that the target was exposed. So we can
+the shooter was trying to hit them, and that the target was exposed. So we can
 automatically classify the shot as a **shot attempt**.
 
 ## Case: The shot does not hit anyone
@@ -53,7 +53,7 @@ sphere and terminates behind them.
 
 If a shot does not intersect the spherical hitbox of any player, it is not a shot attempt.
 
-![Ray passing through a hitbox sphere](/images/docs/missed_hitbox_example.png)
+![Ray passing wide of every hitbox sphere](/images/docs/missed_hitbox_example.png)
 
 ### Bullet Termination
 
@@ -103,6 +103,7 @@ scroll to zoom, and use the timeline to step between individual shots.
 For the full-screen version with extra controls — gridlines, labels, occluded
 players, and adjustable range — open the [interactive lab](/labs/accuracy).
 
+{/* 
 # Implementation
 
 Every shot in Fortnite has a point of origin $\mathbf{A}$ and a direction 
@@ -123,3 +124,4 @@ sphere of radius $r$ centered at the point $(C_x, C_y, C_z)$,
 (C_x - x)^2 + (C_y - y)^2 + (C_z - z)^2 = r^2
 ```
 is a straightforward calculation and constant-time operation.
+*/}
