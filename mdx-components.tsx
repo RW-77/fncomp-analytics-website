@@ -2,6 +2,7 @@ import defaultMdxComponents from 'fumadocs-ui/mdx';
 import type { MDXComponents } from 'mdx/types';
 import Image, { type ImageProps } from 'next/image';
 import AccuracyDemo from '@/components/docs/accuracy-demo';
+import HealthBar from '@/components/docs/health-bar';
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
   return {
@@ -28,6 +29,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     // Available in any doc without an import. The heavy three.js bundle sits
     // behind next/dynamic, so pages that don't render it pay nothing.
     AccuracyDemo,
+    HealthBar,
     ...components,
   } as MDXComponents;
 }
