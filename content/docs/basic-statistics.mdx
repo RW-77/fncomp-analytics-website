@@ -1,0 +1,91 @@
+---
+title: Basic Statistics
+description: Introduction to basic Fortnite statistics
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Overview 
+**Basic statistics** originate directly from recorded in-game events.
+They are usually simple, self-explanatory, and straightforward to calculate.
+
+These include eliminations, damage, time alive, builds placed, revives, reboots, etc.
+
+<Callout type="info" title="Advanced Statistics">
+Statistics such as **assists** and **shot attempts** are **not** basic. There is no such
+recognized event as an assist or shot attempt in-game. They are derived from the
+same raw data, but they don't exist as a single loggable event. Defining one — and computing it — means combining multiple raw event streams.
+</Callout>
+
+# Events
+
+An event is any occurrence or action — or put simply, anything that happened —
+during the span of a match. They can be player events such as movement and
+item pickup events or game-controlled events like zone updates.
+
+Events carry data with them. These properties can include time, location, and
+other information specific to the event type.
+
+For example, an elimination event
+```json
+{
+    "match_id": "0eec9e40404ae27a8a2f0a8e168c0cbb",
+    "shooter": "Elite Pxlarized7!",
+    "victim": "asdfjkl1237750",
+    "timestamp": "123456789",
+    "end_x": 5831,
+    "end_y": -8129,
+    "end_z": 89,
+    "weapon": "Havoc Shotgun"
+}
+```
+has properties beyond the shooter and victim. It also includes the time the shot
+was taken, the coordinates of the impact point of the shot, and the weapon which
+was fired.
+
+Most **basic stats** are simple aggregates of individual **events**,
+- The **eliminations** stat is the sum of all elimination events.
+- The **damage dealt** stat is the sum of damage amounts from all damage events.
+
+## Filter by Key Properties
+
+FNAnalytics allows users to filter statistics by certain key properties using
+the slider UI above the stats table.
+
+The properties **match** and **time** are universal since every event occurs in
+some match at a specific time, so all statistics are filterable by these.
+
+Filtering by **distance** is applicable to statistics that occur over some
+distance, for instance shots, eliminations, and damage, or to statistics derived
+from distance-based statistics such as accuracy.
+
+Filtering by **weapon** will be applicable to statistics derived from events
+involving weapons.
+
+# Basic Stats
+
+The table below lists every basic stat and the key properties you can filter it
+by. **Match** and **time** are universal, so every basic stat supports them.
+Only stats tied to a location on the map add **distance**, and only stats that
+come from a weapon-fired event add **weapon type**.
+
+| Stat | Match | Time | Distance | Weapon type&nbsp;*(coming soon)* |
+| :-- | :--: | :--: | :--: | :--: |
+| Eliminations | ✓ | ✓ | ✓ | ✓ |
+| Damage Dealt | ✓ | ✓ | ✓ | ✓ |
+| Damage Received | ✓ | ✓ | ✓ | ✓ |
+| Damage Ratio | ✓ | ✓ | ✓ | ✓ |
+| Shots | ✓ | ✓ | ✓ | ✓ |
+| Time Alive | ✓ | ✓ | — | — |
+| Builds Placed | ✓ | ✓ | — | — |
+| Rebooted | ✓ | ✓ | — | — |
+| Rebooted Others | ✓ | ✓ | — | — |
+| Revived | ✓ | ✓ | — | — |
+| Revived Others | ✓ | ✓ | — | — |
+
+<Callout type="info" title="Damage Ratio">
+Damage ratio is damage dealt divided by damage received. It inherits the filters
+of both — so narrowing by distance or weapon type re-computes the ratio from the
+filtered damage on each side.
+</Callout>
+

@@ -1,0 +1,206 @@
+---
+title: Damage Contribution onto Eliminations
+description: Totaling damage which directly led to an elimination
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Definition
+
+Damage contribution onto eliminations (DCE) is a total of damage dealt to 
+opponent players that was never fully healed by those opponents before they were 
+eliminated by the damager's team, therefore directly contributing to their death.
+
+A player is eliminated when their health is depleted from damage received. The
+damage may come from one or multiple sources, including both player and
+non-player sources.
+
+### Example
+
+A player X is at full health and shield.
+
+<HealthBar />
+
+Player A deals 130 damage onto X with their shotgun, leaving X at 70 remaining
+health.
+
+<HealthBar
+  events={[
+    { dealer: 'Player A', amount: 130 },
+  ]}
+/>
+
+<Callout type="info" title={`Striped regions are missing health/shield`}>
+The striped regions in the health/shield bar examples represent missing health
+and/or shield due to damage received from an opponent player or some other source.
+</Callout>
+
+Player B then deals 70 damage onto X, eliminating them.
+
+<HealthBar
+  events={[
+    { dealer: 'Player A', amount: 130 },
+    { dealer: 'Player B', amount: 70 },
+  ]}
+/>
+
+Player A's **DCE** statistic increases by 130, and Player B's **DCE** stat increases
+by 70.
+
+# Approach
+
+Throughout the course of a match, FNAnalytics keeps track of all damage events
+and health/shield updates for every player.
+
+For each player, a record is kept of all opponent players that have dealt damage
+to them and how much, called a damage contribution record.
+
+## Healing
+
+> If a damaged player heals, what happens to the damage contribution of other
+players who hit them?
+
+### On Full Heal
+
+If a player ever heals to full HP and shield, their damage contribution record
+is cleared.
+
+### On Partial Heal
+
+If the damaged player partially heals (*i.e.* does not heal to full HP and
+shield), each contributor in the damage record has their contribution rescaled
+in proportion to the total missing health + shield at the moment of the heal.
+
+Suppose the record holds contributions $c_{1}, c_2, \dots, c_n$ from $n$ opponents.
+Let $R$ be the recipient's remaining combined health + shield just before the
+heal. With the maximum combined health and shield fixed at a constant $200$, the
+missing health + shield is
+
+```math
+M = H_{\max} - R, \qquad H_{\max} = 200.
+```
+
+A heal of $H$ points refills part of that missing pool. We spread it evenly
+across every outstanding point of damage, so dealer $i$ — who accounts for a
+fraction $c_i / M$ of the missing health — gives back $H \cdot c_i / M$,
+leaving
+
+```math
+c_i' = c_i - H \cdot \frac{c_i}{M} = c_i \cdot \frac{M - H}{M}.
+```
+
+Clamping to guard against a heal that reaches full — which zeroes the record,
+matching [On Full Heal](#on-full-heal) — the rescaled contribution of every
+dealer $i$ is
+
+```math
+c_i' = f \, c_i, \qquad f = \max\!\left(0,\ \frac{M - H}{M}\right).
+```
+
+<Callout type="idea" title={`Why Rescale?`}>
+We rescale damage contribution from opponents because the order in which they
+dealt damage is inconsequential. The alternative implementations of FIFO and
+LIFO would be far less elegant and intuitive.
+</Callout>
+
+<Callout type="info" title={`Why missing health, not total tracked damage?`}>
+The rescale divides by the total missing health $M$, **not** by the sum
+$\sum_i c_i$ of tracked player contributions. Untracked, non-player damage $u$
+(storm, fall damage, etc.) is missing health that no record accounts for:
+
+```math
+\underbrace{\textstyle\sum_{i=1}^{n} c_i}_{\text{tracked}} \; + \; \underbrace{u}_{\text{untracked}} \; = \; M.
+```
+
+Dividing by $\sum_i c_i$ would assume the heal only ever refills tracked damage,
+over-reducing player contributions whenever $u > 0$. Dividing by $M$ lets the
+untracked portion absorb its fair share of the heal, so tracked contributions
+decay correctly.
+</Callout>
+
+
+## On Elimination
+
+When a player is eliminated, all the players in their record have their DCE 
+statistic increased by the amount of unhealed damage they dealt.
+
+# Additional Examples
+
+Let's walk through a full life — damage, a heal, and an elimination — one step
+at a time.
+
+Player X starts at full health and shield.
+
+<HealthBar />
+
+**Player A** hits X for 70, tearing through most of their shield. The **storm**
+then deals another 30, finishing off the shield. X is left with 0 shield and
+full 100 health.
+
+<HealthBar
+  events={[
+    { dealer: 'Player A', amount: 70 },
+    { dealer: 'Storm', amount: 30, environment: true },
+  ]}
+/>
+
+X's damage record now holds a single player — **Player A**, with 70. The storm's
+30 is real damage, but the storm is not a player, so it can never earn credit.
+
+## The heal
+
+X pops **two Minis**, refilling their shield by 50 (each Mini gives 25). Because
+X did not top back up to full, every contributor in the record is rescaled.
+
+We rescale by the **missing health + shield** — how far below full X was right
+before healing. X was at 100 out of 200, so 100 was missing. Refilling 50 of
+that 100 brings back exactly half of what was missing, so half of it is still
+gone:
+
+```math
+f = \frac{100 - 50}{100} = \frac{1}{2}.
+```
+
+Every contribution is multiplied by this factor. Player A's 70 becomes 35:
+
+<HealthBar
+  events={[
+    { dealer: 'Player A', amount: 35 },
+    { dealer: 'Storm', amount: 15, environment: true },
+  ]}
+/>
+
+<Callout type="info" title={`Why divide by 100 and not 70?`}>
+Of the 100 that was missing, 30 came from the storm, not from Player A. We
+divide by the full 100 so the heal is shared across *all* the missing health. If
+we had divided by Player A's 70 alone, A would have been cut all the way to 20,
+punished for damage the storm dealt. Dividing by the total missing health keeps
+their credit fair at 35.
+</Callout>
+
+## The finish
+
+X is now back up to 150. **Player B** deals 90 and **Player C** deals 60,
+depleting the rest of X's health and eliminating them.
+
+Because B and C dealt their damage *after* the heal, they are not rescaled —
+they get full credit. Only damage already in the record at the moment of the
+heal is affected.
+
+<HealthBar
+  events={[
+    { dealer: 'Player A', amount: 35 },
+    { dealer: 'Storm', amount: 15, environment: true },
+    { dealer: 'Player B', amount: 90 },
+    { dealer: 'Player C', amount: 60 },
+  ]}
+/>
+
+When X is eliminated, everyone left in the record has their **DCE** increased by
+the damage still standing on X:
+
+- **Player A** — 35 (their original 70, halved by the heal)
+- **Player B** — 90
+- **Player C** — 60
+
+The storm's damage is dropped, since it never counts toward a player's DCE.
