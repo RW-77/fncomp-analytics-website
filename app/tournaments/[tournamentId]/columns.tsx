@@ -218,7 +218,7 @@ export const columns: ColumnDef<PlayerRow>[] = [
   },
   {
     accessorKey: "shotsTaken",
-    meta: { label: "Shots", group: "Accuracy", description: "Total shots taken.", icon: Crosshair, docHref: "docs/basic-statistics" },
+    meta: { label: "Shots", group: "Accuracy", description: "Total shots taken.", icon: Crosshair, docHref: "/docs/basic-statistics" },
     header: ({ column }) => (
       <SortableHeader
         label="Shots"
