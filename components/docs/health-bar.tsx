@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react';
 /**
  * One damage event, as it happened. The buffer is a chronological list of these
  * — the same dealer may appear more than once (e.g. A hits, then B, then A
- * again). Each event lands on the victim shield-first, then health.
+ * again). Most damage lands on the victim shield-first, then health; sources
+ * flagged `health_dmg` (storm, fall) bypass shield and hit health directly.
  */
 export type DamageEvent = {
   /** Display name, e.g. "Player A" or "Storm". */
@@ -19,6 +20,11 @@ export type DamageEvent = {
   color?: string;
   /** Storm/fall/etc. — labelled "untracked"; never credited as a DCE dealer. */
   environment?: boolean;
+  /**
+   * Damage that ignores shield and lands directly on health (storm, fall
+   * damage). Its chunk always appears on the HP bar, even while shield remains.
+   */
+  health_dmg?: boolean;
 };
 
 export type HealthBarProps = {
@@ -107,17 +113,23 @@ type Part = {
 };
 
 /**
- * Drain the victim through the whole event buffer, shield-first. Shield fills
- * to capacity across the earliest events; once it's full, the overflow of the
- * boundary-crossing event — and everything after — lands on health. Damage past
- * a full health bar (overkill) is dropped from the visual.
+ * Drain the victim through the whole event buffer. Normal damage is shield-first:
+ * shield fills to capacity across the earliest events, then the overflow of the
+ * boundary-crossing event — and everything after — lands on health. Damage
+ * flagged `health_dmg` (storm, fall) skips shield entirely and lands on health,
+ * so it can chip the HP bar even while shield is still up. Damage past a full
+ * bar (overkill) is dropped from the visual.
  */
 function splitEvents(events: DamageEvent[], colors: Map<string, string>): Part[] {
   let shieldUsed = 0;
   let hpUsed = 0;
   return events.map((e) => {
-    const shield = Math.min(e.amount, Math.max(0, SHIELD_CAP - shieldUsed));
-    shieldUsed += shield;
+    // health_dmg bypasses shield; normal damage drains shield first, overflow to HP.
+    let shield = 0;
+    if (!e.health_dmg) {
+      shield = Math.min(e.amount, Math.max(0, SHIELD_CAP - shieldUsed));
+      shieldUsed += shield;
+    }
     const hp = Math.min(e.amount - shield, Math.max(0, HP_CAP - hpUsed));
     hpUsed += hp;
     return { dealer: e.dealer, color: colors.get(e.dealer)!, environment: e.environment, shield, hp };
