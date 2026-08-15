@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation"
 
+import { prisma } from "@/lib/prisma"
+
 type PageProps = {
   params: Promise<{ tournamentId: string }>
   searchParams: Promise<{ region?: string; day?: string }>
@@ -14,5 +16,12 @@ export default async function TournamentPage({ params, searchParams }: PageProps
   if (day) forwardedParams.set("day", day)
   const query = forwardedParams.toString()
 
-  redirect(`/tournaments/${tournamentId}/players${query ? `?${query}` : ""}`)
+  const hasLeaderboard =
+    (await prisma.event_window_teams.findFirst({
+      where: { event_windows: { tournament_id: tournamentId } },
+      select: { id: true },
+    })) !== null
+
+  const landingTab = hasLeaderboard ? "leaderboard" : "players"
+  redirect(`/tournaments/${tournamentId}/${landingTab}${query ? `?${query}` : ""}`)
 }

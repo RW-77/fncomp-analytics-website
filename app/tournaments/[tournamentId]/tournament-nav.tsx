@@ -6,7 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { CUMULATIVE_DAY, DaySelection, resolveDay, resolveRegion } from "@/lib/tournaments"
 
-const TABS = [
+const LEADERBOARD_TAB = { label: "Leaderboard", segment: "leaderboard" } as const
+const BASE_TABS = [
   { label: "Players", segment: "players" },
   { label: "Matches", segment: "matches" },
 ] as const
@@ -24,9 +25,17 @@ export type SerializedEventWindow = {
 // Tab navigation — rendered outside the header card as a primary nav bar
 // ---------------------------------------------------------------------------
 
-export function TournamentTabNav({ tournamentId }: { tournamentId: string }) {
+export function TournamentTabNav({
+  tournamentId,
+  hasLeaderboard,
+}: {
+  tournamentId: string
+  hasLeaderboard: boolean
+}) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  const tabs = hasLeaderboard ? [LEADERBOARD_TAB, ...BASE_TABS] : BASE_TABS
 
   const tabParams = new URLSearchParams()
   const region = searchParams.get("region")
@@ -39,7 +48,7 @@ export function TournamentTabNav({ tournamentId }: { tournamentId: string }) {
 
   return (
     <nav className="mb-4 inline-flex items-center gap-1.5 rounded-xl bg-[#141d30] p-1.5">
-      {TABS.map(({ label, segment }) => {
+      {tabs.map(({ label, segment }) => {
         const isActive = currentSegment === segment
         return (
           <Link

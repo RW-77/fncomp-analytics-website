@@ -33,6 +33,14 @@ export default async function TournamentLayout({ params, children }: LayoutProps
     notFound()
   }
 
+  const hasLeaderboard =
+    (await prisma.event_window_teams.findFirst({
+      where: {
+        event_window_id: { in: allEventWindows.map((ew) => ew.event_window_id) },
+      },
+      select: { id: true },
+    })) !== null
+
   const availableRegions = Array.from(
     new Set(
       allEventWindows
@@ -94,7 +102,7 @@ export default async function TournamentLayout({ params, children }: LayoutProps
         </header>
 
         {/* Primary view switcher */}
-        <TournamentTabNav tournamentId={tournamentId} />
+        <TournamentTabNav tournamentId={tournamentId} hasLeaderboard={hasLeaderboard} />
 
         {children}
       </div>
