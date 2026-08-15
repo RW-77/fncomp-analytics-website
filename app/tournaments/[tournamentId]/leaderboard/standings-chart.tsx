@@ -70,6 +70,11 @@ export function StandingsChart({ games }: { games: StandingGame[] }) {
     .join(" ")
 
   const hovered = hover != null ? games[hover] : null
+  // Flip the tooltip's horizontal anchor near the plot edges so it never spills
+  // past the panel edge (the scrollable aside clips overflow): centered normally,
+  // right of the leftmost point, left of the rightmost.
+  const hoverFrac = hover != null ? x(hover) / VB_W : 0.5
+  const tooltipAnchorX = hoverFrac < 0.2 ? "0%" : hoverFrac > 0.8 ? "-100%" : "-50%"
 
   return (
     <div className="relative w-full" style={{ paddingBottom: `${(VB_H / VB_W) * 100}%` }}>
@@ -129,7 +134,7 @@ export function StandingsChart({ games }: { games: StandingGame[] }) {
           style={{
             left: `${(x(hover!) / VB_W) * 100}%`,
             top: `${(y(hovered.standing) / VB_H) * 100}%`,
-            transform: "translate(-50%, -118%)",
+            transform: `translate(${tooltipAnchorX}, -118%)`,
             border: "1px solid rgba(227,201,126,0.3)",
           }}
         >
