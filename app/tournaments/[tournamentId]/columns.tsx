@@ -41,6 +41,9 @@ declare module "@tanstack/react-table" {
     // Fumadocs page explaining this stat, e.g. "/docs/accuracy". When set, the
     // header hover-card becomes a link to it. Omit for stats without a doc page.
     docHref?: string
+    // Give this column no fixed width so it absorbs the table's remaining space
+    // (used with the table's `fullWidth` mode).
+    flex?: boolean
   }
 }
 
