@@ -80,6 +80,10 @@ interface DataTableProps<TData, TValue> {
   searchPlaceholder?: string
   showColumnManager?: boolean
   fullWidth?: boolean
+  // Fill the parent's height and let the row area scroll within it, instead of
+  // the default self-sizing card capped at max-h-[72vh]. Used where the table
+  // shares a fixed-height row with a sibling (see the leaderboard).
+  fillHeight?: boolean
   getRowId?: (row: TData) => string
   selectedRowId?: string
   onRowClick?: (row: TData) => void
@@ -95,6 +99,7 @@ export function DataTable<TData, TValue>({
   searchPlaceholder = "Search players...",
   showColumnManager = true,
   fullWidth = false,
+  fillHeight = false,
   getRowId,
   selectedRowId,
   onRowClick,
@@ -127,7 +132,12 @@ export function DataTable<TData, TValue>({
   const rowCount = table.getFilteredRowModel().rows.length
 
   return (
-    <div className="overflow-hidden rounded-md bg-[#141d30]">
+    <div
+      className={cn(
+        "overflow-hidden rounded-md bg-[#141d30]",
+        fillHeight && "lg:flex lg:h-full lg:min-h-0 lg:flex-col"
+      )}
+    >
       <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
           {(label || showResultsCount) && (
@@ -158,7 +168,10 @@ export function DataTable<TData, TValue>({
 
       <Table
         className={cn("table-fixed", fullWidth ? "w-full" : "w-auto")}
-        containerClassName="max-h-[72vh] overflow-y-auto"
+        containerClassName={cn(
+          "max-h-[72vh] overflow-y-auto",
+          fillHeight && "lg:max-h-none lg:min-h-0 lg:flex-1"
+        )}
       >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

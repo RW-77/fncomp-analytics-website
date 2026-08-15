@@ -137,10 +137,11 @@ export function LeaderboardClient({ data }: { data: LeaderboardData }) {
   )
 
   return (
-    // Filters span the top row; the table and panel share the second row, where
-    // grid's default `align-items: stretch` makes them equal height (the taller
-    // table sets the row height and the panel stretches to match).
-    <div className="grid gap-x-4 gap-y-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+    // Filters span the top row; the table and panel share the second row, whose
+    // track is capped at 80vh (`minmax(0,80vh)`) so both panes get the same
+    // bounded height and each scrolls internally instead of the taller one
+    // forcing dead space into the other.
+    <div className="grid gap-x-4 gap-y-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,80vh)]">
       {data.matchCount > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 lg:col-span-2">
           <MatchButton active={selected === "cumulative"} onClick={() => selectMatch("cumulative")}>
@@ -158,6 +159,7 @@ export function LeaderboardClient({ data }: { data: LeaderboardData }) {
         columns={leaderboardColumns}
         data={rows}
         fullWidth
+        fillHeight
         getRowId={getRowId}
         selectedRowId={activeTeamId ?? undefined}
         onRowClick={handleRowClick}
