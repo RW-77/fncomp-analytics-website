@@ -8,6 +8,7 @@ import {
   ColumnDef,
   ColumnFiltersState,
   ColumnOrderState,
+  Row,
   SortingState,
   VisibilityState,
   flexRender,
@@ -32,17 +33,71 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
+import { cn } from "@/lib/utils"
+
+type DataTableRowProps<TData> = {
+  row: Row<TData>
+  isSelected: boolean
+  onRowClick?: (row: TData) => void
+}
+
+function DataTableRowImpl<TData>({ row, isSelected, onRowClick }: DataTableRowProps<TData>) {
+  return (
+    <TableRow
+      data-state={row.getIsSelected() && "selected"}
+      onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+      className={cn(
+        "border-white/[0.05] hover:bg-white/[0.03]",
+        onRowClick && "cursor-pointer",
+        isSelected && "bg-[var(--accent-gold)]/[0.10] hover:bg-[var(--accent-gold)]/[0.14]"
+      )}
+    >
+      {row.getVisibleCells().map((cell) => (
+        <TableCell
+          key={cell.id}
+          className="truncate px-2 py-2.5 text-sm text-slate-300 first:pl-4 last:pr-4"
+        >
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      ))}
+    </TableRow>
+  )
+}
+
+// React.memo erases the generic call signature, so cast it back to the original
+// generic function type (TData still infers from props at each call site). With
+// this, a selection change re-renders only the rows whose `isSelected` flipped —
+// provided `onRowClick` is referentially stable (see the leaderboard call site).
+const DataTableRow = React.memo(DataTableRowImpl) as typeof DataTableRowImpl
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   initialSorting?: SortingState
+  label?: string
+  showResultsCount?: boolean
+  searchColumnId?: string
+  searchPlaceholder?: string
+  showColumnManager?: boolean
+  fullWidth?: boolean
+  getRowId?: (row: TData) => string
+  selectedRowId?: string
+  onRowClick?: (row: TData) => void
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   initialSorting = [],
+  label,
+  showResultsCount = true,
+  searchColumnId = "player",
+  searchPlaceholder = "Search players...",
+  showColumnManager = true,
+  fullWidth = false,
+  getRowId,
+  selectedRowId,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting)
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -52,6 +107,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
+    getRowId,
     defaultColumn: { size: 88 },
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
@@ -74,27 +130,36 @@ export function DataTable<TData, TValue>({
     <div className="overflow-hidden rounded-md bg-[#141d30]">
       <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="min-w-[112px]">
-            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
-              Player Stats
+          {(label || showResultsCount) && (
+            <div className="min-w-[112px]">
+              {label && (
+                <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">
+                  {label}
+                </div>
+              )}
+              {showResultsCount && (
+                <div className={`text-sm text-slate-300${label ? " mt-1" : ""}`}>
+                  <span className="font-semibold text-white tabular-nums">{rowCount}</span> results
+                </div>
+              )}
             </div>
-            <div className="mt-1 text-sm text-slate-300">
-              <span className="font-semibold text-white tabular-nums">{rowCount}</span> results
-            </div>
-          </div>
+          )}
 
           <Input
-            placeholder="Search players..."
-            value={(table.getColumn("player")?.getFilterValue() as string) ?? ""}
-            onChange={(event) => table.getColumn("player")?.setFilterValue(event.target.value)}
+            placeholder={searchPlaceholder}
+            value={(table.getColumn(searchColumnId)?.getFilterValue() as string) ?? ""}
+            onChange={(event) => table.getColumn(searchColumnId)?.setFilterValue(event.target.value)}
             className="h-9 max-w-md border-white/[0.08] bg-[#1c2942] text-slate-100 placeholder:text-slate-500 shadow-none focus-visible:border-sky-400/30 focus-visible:ring-sky-400/15"
           />
         </div>
 
-        <ColumnManager table={table} />
+        {showColumnManager && <ColumnManager table={table} />}
       </div>
 
-      <Table className="w-auto table-fixed" containerClassName="max-h-[72vh] overflow-y-auto">
+      <Table
+        className={cn("table-fixed", fullWidth ? "w-full" : "w-auto")}
+        containerClassName="max-h-[72vh] overflow-y-auto"
+      >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="border-white/[0.06] hover:bg-transparent">
@@ -124,7 +189,7 @@ export function DataTable<TData, TValue>({
                 return (
                   <TableHead
                     key={header.id}
-                    style={{ width: header.getSize() }}
+                    style={meta?.flex ? undefined : { width: header.getSize() }}
                     className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#1c2942]/95 px-2 py-1 align-middle backdrop-blur supports-[backdrop-filter]:bg-[#1c2942]/85 first:pl-4 last:pr-4"
                   >
                     {description ? (
@@ -168,20 +233,12 @@ export function DataTable<TData, TValue>({
         <TableBody>
           {table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow
+              <DataTableRow
                 key={row.id}
-                data-state={row.getIsSelected() && "selected"}
-                className="border-white/[0.05] hover:bg-white/[0.03]"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className="truncate px-2 py-2.5 text-sm text-slate-300 first:pl-4 last:pr-4"
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+                row={row}
+                isSelected={selectedRowId !== undefined && row.id === selectedRowId}
+                onRowClick={onRowClick}
+              />
             ))
           ) : (
             <TableRow className="border-white/[0.05] hover:bg-transparent">
