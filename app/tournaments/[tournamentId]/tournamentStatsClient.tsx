@@ -240,6 +240,7 @@ export default function TournamentStatsClient({ matches, weapons, initialData }:
       <DataTable
         columns={columns}
         data={data}
+        label="Player Stats"
         initialSorting={[{ id: "eliminations", desc: true }]}
       />
     </>
