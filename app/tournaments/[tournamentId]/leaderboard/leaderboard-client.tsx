@@ -138,10 +138,11 @@ export function LeaderboardClient({ data }: { data: LeaderboardData }) {
 
   return (
     // Filters span the top row; the table and panel share the second row, whose
-    // track is capped at 80vh (`minmax(0,80vh)`) so both panes get the same
+    // track is capped at 68vh (`minmax(0,68vh)`) so both panes get the same
     // bounded height and each scrolls internally instead of the taller one
-    // forcing dead space into the other.
-    <div className="grid gap-x-4 gap-y-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,80vh)]">
+    // forcing dead space into the other. Tune the shared height by editing that
+    // 68vh value below (it's the only height knob for both panes).
+    <div className="grid gap-x-4 gap-y-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,68vh)]">
       {data.matchCount > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 lg:col-span-2">
           <MatchButton active={selected === "cumulative"} onClick={() => selectMatch("cumulative")}>
