@@ -66,21 +66,23 @@ model elimination_events {
 }
 
 model event_windows {
-  event_window_id       String    @id @db.VarChar(100)
-  status                String    @db.VarChar(32)
-  created_at            DateTime  @db.Timestamp(6)
-  last_processing_start DateTime? @db.Timestamp(6)
-  last_processed        DateTime? @db.Timestamp(6)
-  last_failed           DateTime? @db.Timestamp(6)
-  start_time            DateTime? @db.Timestamp(6)
-  end_time              DateTime? @db.Timestamp(6)
-  total_matches         Int
-  processed_matches     Int
-  event_id              String    @db.VarChar(100)
-  tournament_id         String?   @db.VarChar
-  day_index             Int?
-  events                events    @relation(fields: [event_id], references: [event_id], onDelete: NoAction, onUpdate: NoAction)
-  matches               matches[]
+  event_window_id           String                      @id @db.VarChar(100)
+  status                    String                      @db.VarChar(32)
+  created_at                DateTime                    @db.Timestamp(6)
+  last_processing_start     DateTime?                   @db.Timestamp(6)
+  last_processed            DateTime?                   @db.Timestamp(6)
+  last_failed               DateTime?                   @db.Timestamp(6)
+  start_time                DateTime?                   @db.Timestamp(6)
+  end_time                  DateTime?                   @db.Timestamp(6)
+  total_matches             Int
+  processed_matches         Int
+  event_id                  String                      @db.VarChar(100)
+  tournament_id             String?                     @db.VarChar
+  day_index                 Int?
+  event_window_team_matches event_window_team_matches[]
+  event_window_teams        event_window_teams[]
+  events                    events                      @relation(fields: [event_id], references: [event_id], onDelete: NoAction, onUpdate: NoAction)
+  matches                   matches[]
 }
 
 model match_players {
@@ -131,6 +133,7 @@ model matches {
   player_count               Int?
   build_major                Int?
   build_minor                Int?
+  session_id                 String                       @db.VarChar(50)
   alive_intervals            alive_intervals[]
   assist_events              assist_events[]
   build_placed_events        build_placed_events[]
@@ -145,6 +148,8 @@ model matches {
   reboot_events              reboot_events[]
   revive_events              revive_events[]
   shot_attempt_events        shot_attempt_events[]
+
+  @@index([session_id], map: "idx_match_session")
 }
 
 model weapons {
@@ -400,4 +405,46 @@ model build_placed_events {
   @@index([match_id], map: "idx_buildplaced_match")
   @@index([game_time_seconds], map: "idx_buildplaced_time")
   @@index([build_type], map: "idx_buildplaced_type")
+}
+
+model event_window_team_matches {
+  id                   Int           @id @default(autoincrement())
+  event_window_id      String        @db.VarChar(100)
+  team_id              String        @db.VarChar(200)
+  session_id           String        @db.VarChar(50)
+  game_number          Int
+  end_time             DateTime      @db.Timestamp(6)
+  placement            Int?
+  team_elims           Int
+  victory_royale       Boolean
+  time_alive           Int?
+  placement_tiebreaker Int?
+  placement_points     Int
+  elim_points          Int
+  total_points         Int
+  event_windows        event_windows @relation(fields: [event_window_id], references: [event_window_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([event_window_id, team_id, session_id], map: "idx_ewtm_window_team_session")
+  @@index([session_id], map: "idx_ewtm_session")
+  @@index([team_id], map: "idx_ewtm_team")
+  @@index([event_window_id], map: "idx_ewtm_window")
+}
+
+model event_window_teams {
+  id              Int           @id @default(autoincrement())
+  event_window_id String        @db.VarChar(100)
+  team_id         String        @db.VarChar(200)
+  team_key        String        @db.VarChar(200)
+  final_rank      Int
+  final_points    Int
+  final_score     BigInt
+  percentile      Float
+  matches         Int
+  wins            Int
+  kills           Int
+  event_windows   event_windows @relation(fields: [event_window_id], references: [event_window_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([event_window_id, team_id], map: "idx_ewt_window_team")
+  @@index([team_key], map: "idx_ewt_team_key")
+  @@index([event_window_id], map: "idx_ewt_window")
 }
