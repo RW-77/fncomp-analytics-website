@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Flag } from "@/components/common/flag"
 import { cn } from "@/lib/utils"
 
 // Display metadata for the column manager (label, category, help text, icon).
@@ -50,6 +51,9 @@ declare module "@tanstack/react-table" {
 export type PlayerRow = {
   player: string
   epicId: string
+  // Raw fnapi flag token (e.g. "GroupIdentity_GeoIdentity_mexico") or null; the
+  // Flag component maps it to an icon. null renders no flag.
+  country: string | null
   damageRatio: number | null
   accuracy: number | null
 } & Record<string, number>
@@ -143,8 +147,9 @@ export const columns: ColumnDef<PlayerRow>[] = [
       />
     ),
     cell: ({ row }) => (
-      <div className="min-w-0 max-w-[280px]" title={row.original.player}>
-        <div className="truncate font-medium text-white">{row.original.player}</div>
+      <div className="flex min-w-0 max-w-[280px] items-center gap-2" title={row.original.player}>
+        <Flag token={row.original.country} className="shrink-0" />
+        <span className="truncate font-medium text-white">{row.original.player}</span>
       </div>
     ),
   },

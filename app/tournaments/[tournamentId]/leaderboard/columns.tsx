@@ -4,7 +4,16 @@ import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Flag } from "@/components/common/flag"
 import { cn } from "@/lib/utils"
+
+// One teammate's identity for rendering a flag next to their name.
+export type TeamPlayer = {
+  epicId: string
+  name: string
+  // Raw fnapi flag token (or null); the Flag component maps it to an icon.
+  flag: string | null
+}
 
 export type LeaderboardRow = {
   // Stable identity for row selection; carried on the row, not rendered.
@@ -12,6 +21,9 @@ export type LeaderboardRow = {
   rank: number
   // Joined in-game display names ("A & B & C"). Also the search/filter value.
   team: string
+  // Per-teammate identities for the Team cell's flags. Empty when the window
+  // has no leaderboard player rows (e.g. all members privacy-hidden).
+  players: TeamPlayer[]
   points: number
   matches: number
   wins: number
@@ -70,14 +82,27 @@ export const leaderboardColumns: ColumnDef<LeaderboardRow>[] = [
     meta: { label: "Team", flex: true },
     header: () => <div className="px-2 text-left text-[14px] text-slate-400">Team</div>,
     cell: ({ row }) => (
-      <div className="min-w-0" title={row.original.team}>
-        <div className="truncate font-medium text-white">{row.original.team}</div>
+      <div className="min-w-0 truncate font-medium text-white" title={row.original.team}>
+        {row.original.players.length > 0
+          ? row.original.players.map((p, i) => (
+              <span key={p.epicId} className="whitespace-nowrap">
+                {i > 0 && <span className="text-slate-500"> &amp; </span>}
+                <Flag token={p.flag} className="mx-1 align-[0.0em]" />
+                {p.name}
+              </span>
+            ))
+          : row.original.team}
       </div>
     ),
   },
   {
     accessorKey: "points",
     size: 96,
+    // Break points ties by total eliminations (higher = better), matching the
+    // official leaderboard order and how the standings rank is computed.
+    sortingFn: (a, b) =>
+      a.original.points - b.original.points ||
+      a.original.kills - b.original.kills,
     header: ({ column }) => (
       <SortableHeader
         label="Points"

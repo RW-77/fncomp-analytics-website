@@ -713,6 +713,7 @@ export async function computeFilteredStats(filters: StatFilters): Promise<Player
         revivedOthers: 0,
         buildsPlaced: 0,
         timeAlive: 0,
+        country: null,
       } as unknown as PlayerRow)
     }
     return playerRows.get(epicId)!
@@ -823,6 +824,33 @@ export async function computeFilteredStats(filters: StatFilters): Promise<Player
       getOrCreateRow(playerInfo.epicId, playerInfo.displayName).timeAlive += seconds
     }
   })
+
+  // Attach each player's country flag from the leaderboard-sourced
+  // event_window_players, scoped to the event windows the selected matches
+  // belong to. A player's flag is ~constant across a tournament, so we keep any
+  // non-null token for the epic id (see lib/flags.ts for token → icon mapping).
+  const epicIds = Array.from(playerRows.keys())
+  if (epicIds.length > 0 && filters.selectedMatches.length > 0) {
+    const scopedMatches = await prisma.matches.findMany({
+      where: { match_id: { in: filters.selectedMatches } },
+      select: { event_window_id: true },
+    })
+    const windowIds = Array.from(new Set(scopedMatches.map((m) => m.event_window_id)))
+    const flagRows = await prisma.event_window_players.findMany({
+      where: { event_window_id: { in: windowIds }, epic_id: { in: epicIds } },
+      select: { epic_id: true, flag_token: true },
+    })
+    const flagByEpicId = new Map<string, string | null>()
+    for (const fr of flagRows) {
+      // Prefer a non-null token; don't let a later null overwrite one.
+      if (fr.flag_token != null || !flagByEpicId.has(fr.epic_id)) {
+        flagByEpicId.set(fr.epic_id, fr.flag_token)
+      }
+    }
+    for (const [epicId, row] of playerRows) {
+      row.country = flagByEpicId.get(epicId) ?? null
+    }
+  }
 
   // Compute derived stats
   for (const row of playerRows.values()) {

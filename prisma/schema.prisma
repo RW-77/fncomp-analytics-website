@@ -79,6 +79,7 @@ model event_windows {
   event_id                  String                      @db.VarChar(100)
   tournament_id             String?                     @db.VarChar
   day_index                 Int?
+  event_window_players      event_window_players[]
   event_window_team_matches event_window_team_matches[]
   event_window_teams        event_window_teams[]
   events                    events                      @relation(fields: [event_id], references: [event_id], onDelete: NoAction, onUpdate: NoAction)
@@ -447,4 +448,17 @@ model event_window_teams {
   @@unique([event_window_id, team_id], map: "idx_ewt_window_team")
   @@index([team_key], map: "idx_ewt_team_key")
   @@index([event_window_id], map: "idx_ewt_window")
+}
+
+model event_window_players {
+  id              Int           @id @default(autoincrement())
+  event_window_id String        @db.VarChar(100)
+  epic_id         String        @db.VarChar(100)
+  epic_username   String        @db.VarChar(100)
+  flag_token      String?       @db.VarChar(100)
+  event_windows   event_windows @relation(fields: [event_window_id], references: [event_window_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([event_window_id, epic_id], map: "idx_ewp_window_epic")
+  @@index([epic_id], map: "idx_ewp_epic")
+  @@index([event_window_id], map: "idx_ewp_window")
 }

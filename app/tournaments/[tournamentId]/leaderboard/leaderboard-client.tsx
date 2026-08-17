@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/common/data-table"
 import { cn } from "@/lib/utils"
 
-import { leaderboardColumns, LeaderboardRow } from "./columns"
+import { leaderboardColumns, type LeaderboardRow, type TeamPlayer } from "./columns"
 import { TeamDetailPanel, type TeamDetail } from "./team-detail-panel"
 import type { StandingGame } from "./standings-chart"
 
@@ -15,7 +15,6 @@ type PerMatch = {
   win: number
   kills: number
   placement: number | null
-  tiebreaker: number
 } | null
 
 export type LeaderboardData = {
@@ -23,6 +22,8 @@ export type LeaderboardData = {
   teams: {
     teamId: string
     name: string
+    // Per-teammate identities (name + flag) for rendering flags next to names.
+    players: TeamPlayer[]
     // Results aligned to the global match order; null where the team didn't play.
     perMatch: PerMatch[]
   }[]
@@ -37,7 +38,6 @@ function snapshot(data: LeaderboardData, upTo: number): LeaderboardRow[] {
       let points = 0
       let wins = 0
       let kills = 0
-      let tiebreaker = 0
       let matches = 0
       for (let i = 0; i < upTo; i++) {
         const m = team.perMatch[i]
@@ -45,19 +45,22 @@ function snapshot(data: LeaderboardData, upTo: number): LeaderboardRow[] {
         points += m.points
         wins += m.win
         kills += m.kills
-        tiebreaker += m.tiebreaker
         matches += 1
       }
-      return { teamId: team.teamId, team: team.name, points, wins, kills, tiebreaker, matches }
+      return { teamId: team.teamId, team: team.name, players: team.players, points, wins, kills, matches }
     })
     .filter((row) => row.matches > 0)
 
-  totals.sort((a, b) => b.points - a.points || b.tiebreaker - a.tiebreaker)
+  // Ties on points break on victory royales first, then total eliminations
+  // (verified against the official leaderboard order), not the per-match
+  // placement tiebreaker.
+  totals.sort((a, b) => b.points - a.points || b.wins - a.wins || b.kills - a.kills)
 
   return totals.map((row, i) => ({
     teamId: row.teamId,
     rank: i + 1,
     team: row.team,
+    players: row.players,
     points: row.points,
     matches: row.matches,
     wins: row.wins,
@@ -114,6 +117,7 @@ export function LeaderboardClient({ data }: { data: LeaderboardData }) {
     return {
       teamId: activeTeamId,
       name: source.name,
+      players: source.players,
       rank: row.rank,
       matches: row.matches,
       points: row.points,

@@ -1,6 +1,8 @@
+import { Flag } from "@/components/common/flag"
 import { cn } from "@/lib/utils"
 
 import { StandingsChart, type StandingGame } from "./standings-chart"
+import type { TeamPlayer } from "./columns"
 
 // Everything the panel renders for the selected team. Header aggregates
 // (rank/points/wins/kills/avgPlacement) reflect the current match-scrubber
@@ -8,6 +10,8 @@ import { StandingsChart, type StandingGame } from "./standings-chart"
 export type TeamDetail = {
   teamId: string
   name: string
+  // Per-teammate identities (name + flag) for the header.
+  players: TeamPlayer[]
   rank: number
   matches: number
   points: number
@@ -48,7 +52,15 @@ export function TeamDetailPanel({ team }: { team: TeamDetail | null }) {
         </div>
         <div className="min-w-0">
           <div className="truncate text-xl font-semibold text-white" title={team.name}>
-            {team.name}
+            {team.players.length > 0
+              ? team.players.map((p, i) => (
+                  <span key={p.epicId} className="whitespace-nowrap">
+                    {i > 0 && <span className="text-slate-500"> &amp; </span>}
+                    <Flag token={p.flag} className="mx-1 align-[0.00em]" />
+                    {p.name}
+                  </span>
+                ))
+              : team.name}
           </div>
           <div className="mt-0.5 text-xs text-slate-400">{team.matches} matches</div>
         </div>

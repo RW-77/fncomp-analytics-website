@@ -10,6 +10,7 @@ import {
 } from "@/lib/tournaments"
 
 import { LeaderboardClient, type LeaderboardData } from "./leaderboard-client"
+import type { TeamPlayer } from "./columns"
 
 type PageProps = {
   params: Promise<{ tournamentId: string }>
@@ -39,7 +40,7 @@ async function buildLeaderboardData(
 ): Promise<LeaderboardData> {
   if (eventWindowIds.length === 0) return { matchCount: 0, teams: [] }
 
-  const [players, matchRows] = await Promise.all([
+  const [players, matchRows, flagPlayers] = await Promise.all([
     prisma.match_players.findMany({
       where: { matches: { event_window_id: { in: eventWindowIds } } },
       select: { epic_id: true, epic_username: true },
@@ -55,18 +56,35 @@ async function buildLeaderboardData(
         victory_royale: true,
         team_elims: true,
         placement: true,
-        placement_tiebreaker: true,
       },
+    }),
+    prisma.event_window_players.findMany({
+      where: { event_window_id: { in: eventWindowIds } },
+      select: { epic_id: true, flag_token: true },
     }),
   ])
 
   const nameByEpicId = new Map(players.map((p) => [p.epic_id, p.epic_username]))
+  // A player's flag is ~constant, so keep any non-null token across the windows.
+  const flagByEpicId = new Map<string, string | null>()
+  for (const fp of flagPlayers) {
+    if (fp.flag_token != null || !flagByEpicId.has(fp.epic_id)) {
+      flagByEpicId.set(fp.epic_id, fp.flag_token)
+    }
+  }
   // team_id is the canonical (sorted) roster key, so it groups a team across days.
   const teamName = (teamId: string) =>
     teamId
       .split(":")
       .map((id) => nameByEpicId.get(id) ?? id.slice(0, 8))
       .join(" & ")
+  // Per-teammate identities (name + flag) for rendering flags next to names.
+  const teamPlayers = (teamId: string): TeamPlayer[] =>
+    teamId.split(":").map((id) => ({
+      epicId: id,
+      name: nameByEpicId.get(id) ?? id.slice(0, 8),
+      flag: flagByEpicId.get(id) ?? null,
+    }))
 
   // Global match order: distinct sessions, earliest end time first.
   const sessionEndTime = new Map<string, number>()
@@ -86,6 +104,7 @@ async function buildLeaderboardData(
       team = {
         teamId: row.team_id,
         name: teamName(row.team_id),
+        players: teamPlayers(row.team_id),
         perMatch: Array(matchCount).fill(null),
       }
       teams.set(row.team_id, team)
@@ -95,7 +114,6 @@ async function buildLeaderboardData(
       win: row.victory_royale ? 1 : 0,
       kills: row.team_elims,
       placement: row.placement,
-      tiebreaker: row.placement_tiebreaker ?? 0,
     }
   }
 
