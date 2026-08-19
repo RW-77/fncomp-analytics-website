@@ -6,6 +6,7 @@ import {
   Crosshair,
   HandHeart,
   Hammer,
+  Hash,
   HeartPulse,
   type LucideIcon,
   PersonStanding,
@@ -134,6 +135,21 @@ function SortableHeader({
 }
 
 export const columns: ColumnDef<PlayerRow>[] = [
+  {
+    // Display-only rank: the row's 1-based position in the currently displayed
+    // (filtered + sorted) order, so it renumbers when the user re-sorts. Not a
+    // data field — no accessor — and deliberately non-sortable/non-hideable.
+    id: "rank",
+    enableSorting: false,
+    enableHiding: false,
+    size: 56,
+    meta: { label: "Rank", icon: Hash },
+    header: () => <div className="px-2 text-left text-[14px] text-slate-400">#</div>,
+    cell: ({ row, table }) => {
+      const position = table.getRowModel().rows.findIndex((r) => r.id === row.id) + 1
+      return <div className="pl-2 font-semibold tabular-nums text-slate-400">{position}</div>
+    },
+  },
   {
     accessorKey: "player",
     enableHiding: false,
