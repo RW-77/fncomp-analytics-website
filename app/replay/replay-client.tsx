@@ -39,8 +39,11 @@ const YAW_IS_DEGREES = true
 const YAW_SIGN = 1
 const YAW_OFFSET_DEG = 0
 
-function yawToScreenDegrees(yawDeg: number): number {
-  return YAW_SIGN * yawDeg + YAW_OFFSET_DEG
+// The map projection rotates world positions by (rotationOffset - 90); the
+// heading arrow must rotate by the same amount or it points the wrong way on
+// rotated maps (Reload). BR (rotationOffset 90) adds 0, so it is unchanged.
+function yawToScreenDegrees(yawDeg: number, rotationOffsetDeg: number): number {
+  return YAW_SIGN * yawDeg + YAW_OFFSET_DEG + (rotationOffsetDeg - 90)
 }
 
 
@@ -1177,7 +1180,7 @@ function ReplayViewport({
                 key={player.playerId ?? `player-${player.playerIndex}`}
                 x={projected.x}
                 y={projected.y}
-                directionDeg={yawToScreenDegrees(player.yawDeg)}
+                directionDeg={yawToScreenDegrees(player.yawDeg, mapDefinition.rotationOffset)}
                 hp={player.hp}
                 shield={player.shield}
                 label={player.username ?? `P${player.playerIndex}`}

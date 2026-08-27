@@ -48,12 +48,23 @@ export function projectReplayWorldToMapImage({
   imageHeight: number
   mapDefinition: ReplayMapDefinition
 }) {
-  const pixelX =
-    ((x - mapDefinition.minimapCenterLocation.x) / mapDefinition.sizeCm + 0.5) *
-    imageWidth
-  const pixelY =
-    (0.5 + (y - mapDefinition.minimapCenterLocation.y) / mapDefinition.sizeCm) *
-    imageHeight
+  const dx = x - mapDefinition.minimapCenterLocation.x
+  const dy = y - mapDefinition.minimapCenterLocation.y
+
+  // The minimap image is oriented per `rotationOffset` (degrees). The bare
+  // linear projection below is only correct when the world axes already line up
+  // with the image, which is the case at rotationOffset = 90 (e.g. BR). For any
+  // other map — notably the Reload maps at rotationOffset 0 — the world offset
+  // must be rotated by (rotationOffset - 90) first, or players land rotated off
+  // the island (e.g. into the ocean). BR is unchanged: 90 - 90 = 0.
+  const theta = ((mapDefinition.rotationOffset - 90) * Math.PI) / 180
+  const cos = Math.cos(theta)
+  const sin = Math.sin(theta)
+  const rx = dx * cos - dy * sin
+  const ry = dx * sin + dy * cos
+
+  const pixelX = (rx / mapDefinition.sizeCm + 0.5) * imageWidth
+  const pixelY = (0.5 + ry / mapDefinition.sizeCm) * imageHeight
 
   return {
     x: pixelX - imageWidth / 2,
