@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMatchData, getMapAssets } from "@/lib/replay/match-data"
 import { getMatchBuildVersion } from "@/lib/stats"
 
+// Never statically cache: this returns per-request presigned S3 URLs (1h TTL)
+// and live DB reads. Without this, a response computed before the map assets
+// existed (falling back to BR) is cached and served indefinitely.
+export const dynamic = "force-dynamic"
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ matchId: string }> }
@@ -15,7 +20,11 @@ export async function GET(
     ])
 
     const mapAssets = buildVersion
-      ? await getMapAssets(buildVersion.build_major, buildVersion.build_minor)
+      ? await getMapAssets(
+          buildVersion.build_major,
+          buildVersion.build_minor,
+          buildVersion.mode_id ?? undefined,
+        )
       : null
 
     return NextResponse.json({

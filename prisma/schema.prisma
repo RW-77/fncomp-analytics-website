@@ -127,6 +127,7 @@ model matches {
   last_failed                DateTime?                    @db.Timestamp(6)
   event_id                   String?                      @db.VarChar(100)
   map_path                   String?                      @db.VarChar
+  mode_id                    String?                      @db.VarChar(50)
   start_time                 DateTime?                    @db.Timestamp(6)
   end_time                   DateTime?                    @db.Timestamp(6)
   gamemode                   String?                      @db.VarChar(100)

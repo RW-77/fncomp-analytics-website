@@ -10,13 +10,13 @@ import { Heading1 } from "lucide-react";
 
 export async function getMatchBuildVersion(
   matchId: string
-): Promise<{ build_major: number; build_minor: number } | null> {
+): Promise<{ build_major: number; build_minor: number; mode_id: string | null } | null> {
   const match = await prisma.matches.findUnique({
     where: { match_id: matchId },
-    select: { build_major: true, build_minor: true },
+    select: { build_major: true, build_minor: true, mode_id: true },
   })
   if (!match || match.build_major === null || match.build_minor === null) return null
-  return { build_major: match.build_major, build_minor: match.build_minor }
+  return { build_major: match.build_major, build_minor: match.build_minor, mode_id: match.mode_id }
 }
 
 // ============================================================================
