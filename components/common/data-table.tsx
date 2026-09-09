@@ -38,6 +38,13 @@ import { cn } from "@/lib/utils"
 type DataTableRowProps<TData> = {
   row: Row<TData>
   isSelected: boolean
+  // Signature of the current visible-column layout (ids in order). A column
+  // reorder or visibility change leaves the `row` reference untouched (the row
+  // model memoizes only on data/sorting), so the memo comparator below can't see
+  // it from `row` alone — without this, the body would keep the OLD column order
+  // while the header moved, swapping columns visually. The comparator reads it so
+  // the row re-renders whenever the layout changes.
+  columnSig: string
   onRowClick?: (row: TData) => void
 }
 
@@ -64,11 +71,21 @@ function DataTableRowImpl<TData>({ row, isSelected, onRowClick }: DataTableRowPr
   )
 }
 
-// React.memo erases the generic call signature, so cast it back to the original
-// generic function type (TData still infers from props at each call site). With
-// this, a selection change re-renders only the rows whose `isSelected` flipped —
-// provided `onRowClick` is referentially stable (see the leaderboard call site).
-const DataTableRow = React.memo(DataTableRowImpl) as typeof DataTableRowImpl
+// Explicit comparator spells out the full set of inputs a row's render depends
+// on: its data (`row`, a stable reference — see `columnSig`), selection state,
+// column layout, and click handler. A selection change then re-renders only the
+// rows whose `isSelected` flipped (provided `onRowClick` is referentially stable
+// — see the leaderboard call site), while a column reorder/hide re-renders all
+// rows via `columnSig`. React.memo erases the generic call signature, so cast it
+// back to the original generic function type (TData still infers at each call).
+const DataTableRow = React.memo(
+  DataTableRowImpl,
+  (prev, next) =>
+    prev.row === next.row &&
+    prev.isSelected === next.isSelected &&
+    prev.columnSig === next.columnSig &&
+    prev.onRowClick === next.onRowClick
+) as typeof DataTableRowImpl
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -130,6 +147,13 @@ export function DataTable<TData, TValue>({
   })
 
   const rowCount = table.getFilteredRowModel().rows.length
+
+  // Layout signature passed to each (memoized) row so a column reorder or
+  // visibility change forces the body to re-render in step with the header.
+  const columnSig = table
+    .getVisibleLeafColumns()
+    .map((c) => c.id)
+    .join(",")
 
   return (
     <div
@@ -250,6 +274,7 @@ export function DataTable<TData, TValue>({
                 key={row.id}
                 row={row}
                 isSelected={selectedRowId !== undefined && row.id === selectedRowId}
+                columnSig={columnSig}
                 onRowClick={onRowClick}
               />
             ))
