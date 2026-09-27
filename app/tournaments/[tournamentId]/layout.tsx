@@ -62,6 +62,12 @@ export default async function TournamentLayout({ params, children }: LayoutProps
     regionToDays[region] = days
   }
 
+  const allDays = Array.from(
+    new Set(
+      allEventWindows.map((ew) => ew.day_index).filter((d): d is number => d !== null)
+    )
+  ).sort((a, b) => a - b)
+
   const serializedEventWindows: SerializedEventWindow[] = allEventWindows.map((ew) => ({
     event_window_id: ew.event_window_id,
     day_index: ew.day_index,
@@ -98,7 +104,11 @@ export default async function TournamentLayout({ params, children }: LayoutProps
 
           <TournamentMeta eventWindows={serializedEventWindows} />
 
-          <RegionDayToggles availableRegions={availableRegions} regionToDays={regionToDays} />
+          <RegionDayToggles
+            availableRegions={availableRegions}
+            regionToDays={regionToDays}
+            allDays={allDays}
+          />
         </header>
 
         {/* Primary view switcher */}

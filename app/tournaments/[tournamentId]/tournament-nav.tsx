@@ -77,9 +77,13 @@ export function TournamentTabNav({
 export function RegionDayToggles({
   availableRegions,
   regionToDays,
+  allDays,
 }: {
   availableRegions: string[]
   regionToDays: Record<string, number[]>
+  // Days across every window — used for region-less events (e.g. LAN Global
+  // Championships), mirroring the leaderboard page's no-region fallback.
+  allDays: number[]
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -88,7 +92,7 @@ export function RegionDayToggles({
   const requestedDay = searchParams.get("day") ?? undefined
 
   const effectiveRegion = resolveRegion(requestedRegion, availableRegions)
-  const availableDays = effectiveRegion ? (regionToDays[effectiveRegion] ?? []) : []
+  const availableDays = effectiveRegion ? (regionToDays[effectiveRegion] ?? []) : allDays
   const effectiveDay = resolveDay(requestedDay, availableDays)
 
   function buildUrl(region: string | null, day: DaySelection | null) {
