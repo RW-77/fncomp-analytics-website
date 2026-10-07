@@ -14,6 +14,11 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname()
+  // Replay workspaces (a match's replay page and the replay lab) run edge to
+  // edge, so the nav does too: no max width, and the same 16px inset as the
+  // left panel's content, so the logo lines up with it.
+  const fullBleed =
+    pathname === "/replay-lab" || /^\/tournaments\/[^/]+\/matches\/[^/]+/.test(pathname)
   // Match the wider tournament workspace so the nav aligns with the page below it.
   const wide = pathname.startsWith("/tournaments/")
   // On docs pages, mirror fumadocs' centered layout so the logo tracks the
@@ -28,7 +33,9 @@ export function Navigation() {
       <div
         className={cn(
           "flex h-14 items-center gap-[1.6rem] sm:gap-[2.8rem]",
-          docs
+          fullBleed
+            ? "px-4"
+            : docs
             ? "mx-auto max-w-[1552px] px-4"
             : wide
               ? "mx-auto max-w-[1800px] px-4 md:px-14"

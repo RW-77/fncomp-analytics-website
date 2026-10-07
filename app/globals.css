@@ -119,6 +119,105 @@
   --sidebar-ring: oklch(0.71 0.08 228);
 }
 
+/*
+ * Surfaces of the replay workspace (match page / replay lab): the page behind
+ * the panels, the panels, and the shades used inside them.
+ */
+:root {
+  --app-bg: #0e1523;
+  --panel: #141d30;
+  --panel-raised: #1b2640;    /* the Viewing-as band */
+  --panel-selected: #1f2b48;  /* the selected list row */
+  --panel-inset: #0f1726;     /* fields sunk into a panel */
+  --panel-line: #263250;      /* rules and the timeline rail */
+  --panel-control: #34446b;   /* outlined button borders */
+}
+
+/*
+ * Experimental themes, opt-in per page: the replay lab sets
+ * <html data-theme="black" | "gray-dark" | "gray" | "tournament">. The three
+ * neutral ones swap the surfaces above for neutral greys, turn the slate text
+ * greys neutral, and paint the nav and page background in the theme's page
+ * color. Unlayered, so they beat Tailwind's utilities and theme vars.
+ */
+html[data-theme='black'] {
+  --app-bg: #000000;
+  --panel: #0b0b0c;
+  --panel-raised: #151517;
+  --panel-selected: #1d1d20;
+  --panel-inset: #050506;
+  --panel-line: #26262a;
+  --panel-control: #3a3a40;
+  --popover: oklch(0.17 0 0);
+  --accent: oklch(0.24 0 0);
+}
+html[data-theme='gray-dark'] {
+  --app-bg: #111112;
+  --panel: #18181a;
+  --panel-raised: #212124;
+  --panel-selected: #29292c;
+  --panel-inset: #0f0f10;
+  --panel-line: #2e2e32;
+  --panel-control: #44444a;
+  --popover: oklch(0.23 0 0);
+  --accent: oklch(0.29 0 0);
+}
+html[data-theme='gray'] {
+  --app-bg: #19191b;
+  --panel: #222225;
+  --panel-raised: #2b2b2f;
+  --panel-selected: #333337;
+  --panel-inset: #18181a;
+  --panel-line: #38383d;
+  --panel-control: #4e4e55;
+  --popover: oklch(0.27 0 0);
+  --accent: oklch(0.33 0 0);
+}
+/*
+ * Built on the tournament pages' dark backdrop (#0a0f1a, see
+ * app/tournaments/[tournamentId]/layout.tsx): the page is that color and the
+ * panels sit just above it, the way the black theme lifts its panels. Navy
+ * tinted, so the slate text and the site nav stay as they are.
+ */
+html[data-theme='tournament'] {
+  --app-bg: #0a0f1a;
+  --panel: #0e1421;
+  --panel-raised: #151c2b;
+  --panel-selected: #1a2233;
+  --panel-inset: #070b13;
+  --panel-line: #1f2838;
+  --panel-control: #2f3a50;
+}
+html[data-theme='tournament'] body {
+  background: var(--app-bg);
+}
+
+html[data-theme='black'],
+html[data-theme='gray-dark'],
+html[data-theme='gray'] {
+  --background: var(--app-bg);
+  --card: var(--panel);
+  --secondary: var(--panel-raised);
+  --muted: var(--panel-raised);
+  --muted-foreground: oklch(0.72 0 0);
+
+  --color-slate-100: oklch(97% 0 0);
+  --color-slate-200: oklch(92.2% 0 0);
+  --color-slate-300: oklch(87% 0 0);
+  --color-slate-400: oklch(70.8% 0 0);
+  --color-slate-500: oklch(55.6% 0 0);
+  --color-slate-600: oklch(43.9% 0 0);
+  --color-slate-700: oklch(37.1% 0 0);
+  --color-slate-800: oklch(26.9% 0 0);
+  --color-slate-900: oklch(20.5% 0 0);
+}
+html:is([data-theme='black'], [data-theme='gray-dark'], [data-theme='gray']) body {
+  background: var(--app-bg);
+}
+html:is([data-theme='black'], [data-theme='gray-dark'], [data-theme='gray']) nav {
+  background-color: color-mix(in srgb, var(--app-bg) 85%, transparent);
+}
+
 /* Gold gradient text with a soft glow — used for the hero title accent word. */
 @utility text-gradient-gold {
   background-image: linear-gradient(

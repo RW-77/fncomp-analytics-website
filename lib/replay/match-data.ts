@@ -6,6 +6,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import type { ReplayMapDefinition } from '@/lib/replay/map-projection'
+import type { MatchEngagements } from '@/lib/replay/engagements'
 
 const {
     BUCKET_NAME,
@@ -37,6 +38,7 @@ export type MatchMetadata = {
     player_count?: number
     index_to_player?: Record<string, string>
     player_to_index?: Record<string, number>
+    index_to_team?: Record<string, number>
     id_to_username?: Record<string, string>
 }
 
@@ -84,4 +86,18 @@ export async function getMatchData(matchId: string): Promise<MatchMetadata> {
     }
     const str = await response.Body.transformToString();
     return JSON.parse(str);
+}
+
+// The match's engagements file, written by the ETL's engagements asset. null
+// when the match hasn't been processed for engagements yet.
+export async function getMatchEngagements(matchId: string): Promise<MatchEngagements | null> {
+    const key = `replays/matches/${matchId}/engagements.json`;
+    try {
+        const response = await s3Client.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
+        if (!response.Body) return null;
+        return JSON.parse(await response.Body.transformToString()) as MatchEngagements;
+    } catch (e) {
+        if (e instanceof NoSuchKey) return null;
+        throw e;
+    }
 }
