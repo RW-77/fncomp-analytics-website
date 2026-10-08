@@ -119,6 +119,20 @@
   --sidebar-ring: oklch(0.71 0.08 228);
 }
 
+/*
+ * Surfaces of the replay workspace (match page / replay lab): the page behind
+ * the panels, the panels, and the shades used inside them.
+ */
+:root {
+  --app-bg: #0e1523;
+  --panel: #141d30;
+  --panel-raised: #1b2640;    /* the Viewing-as band */
+  --panel-selected: #1f2b48;  /* the selected list row */
+  --panel-inset: #0f1726;     /* fields sunk into a panel */
+  --panel-line: #263250;      /* rules and the timeline rail */
+  --panel-control: #34446b;   /* outlined button borders */
+}
+
 /* Gold gradient text with a soft glow — used for the hero title accent word. */
 @utility text-gradient-gold {
   background-image: linear-gradient(
