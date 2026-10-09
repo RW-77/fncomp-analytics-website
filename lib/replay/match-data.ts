@@ -2,7 +2,6 @@ import {
     S3Client,
     GetObjectCommand,
     NoSuchKey,
-    S3ServiceException,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import type { ReplayMapDefinition } from '@/lib/replay/map-projection'
@@ -181,18 +180,29 @@ export async function getMapAssets(
     }
 }
 
-export async function getMatchData(matchId: string): Promise<MatchMetadata> {
+// The match's timeline metadata, written by the ETL's timeline asset. null
+// when the match has no timeline yet, or the file lacks what the replay needs.
+export async function getMatchMetadata(matchId: string): Promise<MatchMetadata | null> {
     const key = `replays/matches/${matchId}/metadata.json`;
-    const command = new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
-    });
-    const response = await s3Client.send(command);
-    if (!response.Body) {
-        throw new Error("No body in response");
+    try {
+        const response = await s3Client.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
+        if (!response.Body) return null;
+        const metadata: unknown = JSON.parse(await response.Body.transformToString());
+        return isReplayMetadata(metadata) ? metadata : null;
+    } catch (e) {
+        if (e instanceof NoSuchKey) return null;
+        throw e;
     }
-    const str = await response.Body.transformToString();
-    return JSON.parse(str);
+}
+
+function isReplayMetadata(value: unknown): value is MatchMetadata {
+    const m = value as Partial<MatchMetadata> | null;
+    return (
+        typeof m?.match_id === 'string' &&
+        typeof m.hz === 'number' && m.hz > 0 &&
+        typeof m.interval_seconds === 'number' && m.interval_seconds > 0 &&
+        typeof m.player_to_index === 'object' && m.player_to_index !== null
+    );
 }
 
 // The match's inventory file, written by the ETL's inventory asset. null when
