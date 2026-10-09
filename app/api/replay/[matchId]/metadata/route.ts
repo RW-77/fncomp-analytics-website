@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getMatchData, getMapAssets } from "@/lib/replay/match-data"
-import { getMatchBuildVersion } from "@/lib/stats"
+import { getReplayPayload } from "@/lib/replay/replay-payload"
 
 // Never statically cache: this returns per-request presigned S3 URLs (1h TTL)
 // and live DB reads. Without this, a response computed before the map assets
@@ -14,25 +13,11 @@ export async function GET(
 ) {
   const { matchId } = await params
   try {
-    const [metadata, buildVersion] = await Promise.all([
-      getMatchData(matchId),
-      getMatchBuildVersion(matchId),
-    ])
-
-    const mapAssets = buildVersion
-      ? await getMapAssets(
-          buildVersion.build_major,
-          buildVersion.build_minor,
-          buildVersion.mode_id ?? undefined,
-        )
-      : null
-
-    return NextResponse.json({
-      metadata,
-      mapDefinition: mapAssets?.definition ?? null,
-      mapImageUrl: mapAssets?.imageUrl ?? null,
-    })
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 })
+    const payload = await getReplayPayload(matchId)
+    if (!payload) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    return NextResponse.json(payload)
+  } catch (err) {
+    console.error(`Failed to load replay for match ${matchId}`, err)
+    return NextResponse.json({ error: "Failed to load replay" }, { status: 500 })
   }
 }

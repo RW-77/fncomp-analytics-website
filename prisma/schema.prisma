@@ -106,6 +106,9 @@ model match_players {
   fire_weapon_events_fire_weapon_events_actor_idTomatch_players                  fire_weapon_events[]         @relation("fire_weapon_events_actor_idTomatch_players")
   fire_weapon_events_fire_weapon_events_hit_player_idTomatch_players             fire_weapon_events[]         @relation("fire_weapon_events_hit_player_idTomatch_players")
   matches                                                                        matches                      @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_player_cosmetics                                                         match_player_cosmetics[]
+  knock_events_knock_events_actor_idTomatch_players                              knock_events[]               @relation("knock_events_actor_idTomatch_players")
+  knock_events_knock_events_recipient_idTomatch_players                          knock_events[]               @relation("knock_events_recipient_idTomatch_players")
   reboot_events_reboot_events_rebooted_idTomatch_players                         reboot_events[]              @relation("reboot_events_rebooted_idTomatch_players")
   reboot_events_reboot_events_rebooter_idTomatch_players                         reboot_events[]              @relation("reboot_events_rebooter_idTomatch_players")
   revive_events_revive_events_revived_idTomatch_players                          revive_events[]              @relation("revive_events_revived_idTomatch_players")
@@ -144,6 +147,8 @@ model matches {
   elimination_events         elimination_events[]
   fire_weapon_events         fire_weapon_events[]
   match_players              match_players[]
+  match_player_cosmetics     match_player_cosmetics[]
+  knock_events               knock_events[]
   match_stat_status          match_stat_status[]
   match_weapons              match_weapons[]
   event_windows              event_windows                @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
@@ -462,4 +467,92 @@ model event_window_players {
   @@unique([event_window_id, epic_id], map: "idx_ewp_window_epic")
   @@index([epic_id], map: "idx_ewp_epic")
   @@index([event_window_id], map: "idx_ewp_window")
+}
+
+model cosmetics {
+  id                  String   @id @db.VarChar(100)
+  name                String?  @db.VarChar(200)
+  description         String?  @db.VarChar(1000)
+  cosmetic_type       String   @db.VarChar(50)
+  rarity              String?  @db.VarChar(50)
+  set_name            String?  @db.VarChar(200)
+  series_name         String?  @db.VarChar(100)
+  introduction_season Int?
+  introduction        String?  @db.VarChar(100)
+  gameplay_tags       Json?    @db.Json
+  variants            Json?    @db.Json
+  image_key           String?  @db.VarChar(300)
+  small_image_key     String?  @db.VarChar(300)
+  image_url           String?  @db.VarChar(500)
+  small_image_url     String?  @db.VarChar(500)
+  first_seen_at       DateTime @db.Timestamp(6)
+  last_seen_at        DateTime @db.Timestamp(6)
+
+  @@index([rarity], map: "idx_cosmetic_rarity")
+  @@index([cosmetic_type], map: "idx_cosmetic_type")
+}
+
+model match_player_cosmetics {
+  id            Int           @id @default(autoincrement())
+  match_id      String        @db.VarChar(50)
+  player_id     Int
+  loadout_slot  String        @db.VarChar(50)
+  cosmetic_id   String        @db.VarChar(100)
+  styles        Json?         @db.Json
+  matches       matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players match_players @relation(fields: [player_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([player_id, loadout_slot], map: "idx_mpc_player_slot")
+  @@index([cosmetic_id], map: "idx_mpc_cosmetic")
+  @@index([match_id], map: "idx_mpc_match")
+}
+
+model augments {
+  id              String   @id @db.VarChar(200)
+  name            String?  @db.VarChar(200)
+  description     String?  @db.VarChar(1000)
+  rarity          String?  @db.VarChar(50)
+  gameplay_tags   Json?    @db.Json
+  image_key       String?  @db.VarChar(300)
+  small_image_key String?  @db.VarChar(300)
+  image_url       String?  @db.VarChar(500)
+  small_image_url String?  @db.VarChar(500)
+  first_seen_at   DateTime @db.Timestamp(6)
+  last_seen_at    DateTime @db.Timestamp(6)
+}
+
+model static_items {
+  id        String   @id @db.VarChar(200)
+  name      String?  @db.VarChar(200)
+  category  String?  @db.VarChar(50)
+  alias_of  String?  @db.VarChar(200)
+  image_key String?  @db.VarChar(300)
+  synced_at DateTime @db.Timestamp(6)
+
+  @@index([category], map: "idx_static_item_category")
+}
+
+model knock_events {
+  id                                                     Int           @id @default(autoincrement())
+  match_id                                               String        @db.VarChar(50)
+  timestamp                                              DateTime      @db.Timestamp(6)
+  game_time_seconds                                      Float?
+  actor_id                                               Int
+  recipient_id                                           Int
+  gun_type                                               Int?
+  actor_x                                                Float
+  actor_y                                                Float
+  actor_z                                                Float
+  recipient_x                                            Float
+  recipient_y                                            Float
+  recipient_z                                            Float
+  distance                                               Float
+  zone                                                   Int
+  match_players_knock_events_actor_idTomatch_players     match_players @relation("knock_events_actor_idTomatch_players", fields: [actor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches                                                matches       @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+  match_players_knock_events_recipient_idTomatch_players match_players @relation("knock_events_recipient_idTomatch_players", fields: [recipient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([actor_id], map: "idx_knock_actor")
+  @@index([match_id], map: "idx_knock_match")
+  @@index([recipient_id], map: "idx_knock_recipient")
 }

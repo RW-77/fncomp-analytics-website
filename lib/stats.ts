@@ -1,12 +1,57 @@
 import { prisma } from "@/lib/prisma"
 import { PlayerRow } from "@/app/tournaments/[tournamentId]/columns"
 import { StatFilters, FilterCapabilities } from "@/lib/types"
-import { Button } from "@/components/ui/button";
-import { Heading1 } from "lucide-react";
+import { getTournamentDisplayTitle } from "@/lib/tournaments"
 
 // ============================================================================
 // Replay
 // ============================================================================
+
+// Where a match sits: its tournament, region and day, and its number among
+// its event window's games by start time (how the matches list numbers a
+// day's games). The window's matches are all scored games, so that's also
+// the leaderboard's game number.
+export type MatchSummary = {
+  matchId: string
+  tournamentId: string | null
+  tournamentTitle: string | null
+  regionCode: string | null
+  dayIndex: number | null       // 1-based; null for a single-day event
+  startTime: Date | null
+  number: number | null         // null when the start time is unknown
+}
+
+export async function getMatchSummary(matchId: string): Promise<MatchSummary | null> {
+  const match = await prisma.matches.findUnique({
+    where: { match_id: matchId },
+    select: {
+      start_time: true,
+      event_window_id: true,
+      event_windows: { select: { tournament_id: true, day_index: true, events: { select: { region_code: true } } } },
+    },
+  })
+  if (!match) return null
+  const tournamentId = match.event_windows.tournament_id
+  const [tournament, earlier] = await Promise.all([
+    tournamentId
+      ? prisma.tournaments.findUnique({ where: { tournament_id: tournamentId }, select: { title: true } })
+      : null,
+    match.start_time
+      ? prisma.matches.count({
+          where: { event_window_id: match.event_window_id, start_time: { lt: match.start_time } },
+        })
+      : null,
+  ])
+  return {
+    matchId,
+    tournamentId,
+    tournamentTitle: tournamentId ? getTournamentDisplayTitle({ tournament_id: tournamentId, title: tournament?.title ?? null }) : null,
+    regionCode: match.event_windows.events.region_code,
+    dayIndex: match.event_windows.day_index,
+    startTime: match.start_time,
+    number: earlier === null ? null : earlier + 1,
+  }
+}
 
 export async function getMatchBuildVersion(
   matchId: string
@@ -17,6 +62,192 @@ export async function getMatchBuildVersion(
   })
   if (!match || match.build_major === null || match.build_minor === null) return null
   return { build_major: match.build_major, build_minor: match.build_minor, mode_id: match.mode_id }
+}
+
+// A cosmetic or item as stored: its id, display name, and S3 image key (the
+// small icon when there is one). Image keys are signed into URLs separately
+// (lib/replay/match-data.ts), since the URLs expire.
+export type StoredCosmetic = { cosmeticId: string; name: string | null; imageKey: string | null }
+
+/**
+ * The outfit (skin) and pickaxe each player had equipped in a match, keyed by
+ * epic id. Comes from the ETL's match_player_cosmetics table (the
+ * LoadoutSlot_Character and LoadoutSlot_Pickaxe rows) joined to the cosmetics
+ * catalog for the name and the S3 image key — the small 128px icon when there
+ * is one. A player missing here has no loadout data (the match predates it, or
+ * Osirion returned none); a cosmetic missing from the catalog comes back with
+ * a null name and image.
+ */
+export async function getMatchLoadouts(
+  matchId: string
+): Promise<{ skins: Record<string, StoredCosmetic>; pickaxes: Record<string, StoredCosmetic> }> {
+  const rows = await prisma.match_player_cosmetics.findMany({
+    where: { match_id: matchId, loadout_slot: { in: ["LoadoutSlot_Character", "LoadoutSlot_Pickaxe"] } },
+    select: { loadout_slot: true, cosmetic_id: true, match_players: { select: { epic_id: true } } },
+  })
+  // cosmetic_id is a soft reference (no foreign key), so the catalog is a
+  // second query rather than a relation.
+  const cosmetics = await prisma.cosmetics.findMany({
+    where: { id: { in: [...new Set(rows.map((r) => r.cosmetic_id))] } },
+    select: { id: true, name: true, image_key: true, small_image_key: true },
+  })
+  const byId = new Map(cosmetics.map((c) => [c.id, c]))
+
+  const skins: Record<string, StoredCosmetic> = {}
+  const pickaxes: Record<string, StoredCosmetic> = {}
+  for (const row of rows) {
+    const cosmetic = byId.get(row.cosmetic_id)
+    const target = row.loadout_slot === "LoadoutSlot_Character" ? skins : pickaxes
+    target[row.match_players.epic_id] = {
+      cosmeticId: row.cosmetic_id,
+      name: cosmetic?.name ?? null,
+      imageKey: cosmetic?.small_image_key ?? cosmetic?.image_key ?? null,
+    }
+  }
+  return { skins, pickaxes }
+}
+
+// What an inventory item is, for display. `category` is "weapon" (anything in
+// the weapons catalog, including consumables like the Chug Jug), "augment",
+// "pickaxe", "unknown" (in no catalog), or a static item's category
+// ("consumable", "utility", "melee", "material", "ammo", "currency",
+// "objective", "building", "tool", "internal"). `ammo` is a weapon's ammo item
+// id (e.g. AthenaAmmoDataBulletsMedium), for showing its reserve.
+export type StoredItem = {
+  name: string | null
+  category: string
+  rarity: string | null
+  ammo: string | null
+  imageKey: string | null
+}
+
+/**
+ * Looks up inventory item ids, keyed by item id. Each id resolves through the
+ * first catalog that has it, in the order the ETL documents
+ * (etl/static/items.py): weapons; a modded weapon's base weapon (WMID_x is
+ * WID_x with mods); augments; the hand-maintained static items. Pickaxe ids
+ * aren't in any catalog: a pickaxe's image is the player's pickaxe cosmetic
+ * (see getMatchLoadouts), so they only get the "pickaxe" category here.
+ */
+export async function getItemCatalog(itemIds: string[]): Promise<Record<string, StoredItem>> {
+  const baseOf = (id: string) => (id.startsWith("WMID_") ? `WID_${id.slice(5)}` : id)
+  const [weapons, augments, statics] = await Promise.all([
+    prisma.weapons.findMany({
+      where: { id: { in: [...new Set(itemIds.map(baseOf))] } },
+      select: { id: true, name: true, rarity: true, ammo: true, image_key: true, small_image_key: true },
+    }),
+    prisma.augments.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, name: true, rarity: true, image_key: true, small_image_key: true },
+    }),
+    prisma.static_items.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, name: true, category: true, image_key: true },
+    }),
+  ])
+  const weaponById = new Map(weapons.map((w) => [w.id, w]))
+  const augmentById = new Map(augments.map((a) => [a.id, a]))
+  const staticById = new Map(statics.map((s) => [s.id, s]))
+
+  const catalog: Record<string, StoredItem> = {}
+  for (const id of itemIds) {
+    const weapon = weaponById.get(id) ?? weaponById.get(baseOf(id))
+    const augment = augmentById.get(id)
+    const stat = staticById.get(id)
+    if (weapon) {
+      catalog[id] = {
+        name: weapon.name, category: "weapon", rarity: weapon.rarity, ammo: weapon.ammo,
+        imageKey: weapon.small_image_key ?? weapon.image_key,
+      }
+    } else if (augment) {
+      catalog[id] = {
+        name: augment.name, category: "augment", rarity: augment.rarity, ammo: null,
+        imageKey: augment.small_image_key ?? augment.image_key,
+      }
+    } else if (stat) {
+      catalog[id] = {
+        name: stat.name, category: stat.category ?? "unknown", rarity: null, ammo: null,
+        imageKey: stat.image_key,
+      }
+    } else {
+      catalog[id] = {
+        name: null, category: /pickaxe/i.test(id) ? "pickaxe" : "unknown", rarity: null, ammo: null,
+        imageKey: null,
+      }
+    }
+  }
+  return catalog
+}
+
+// Where each team placed in a match, from the tournament leaderboard (the
+// event_window_team_matches rows for the match's session) — the authoritative
+// result, present for every scored game. A team is its members' epic ids.
+export type TeamPlacement = { placement: number; memberIds: string[] }
+
+export async function getMatchPlacements(matchId: string): Promise<TeamPlacement[]> {
+  const match = await prisma.matches.findUnique({
+    where: { match_id: matchId },
+    select: { session_id: true, event_window_id: true },
+  })
+  if (!match) return []
+  const rows = await prisma.event_window_team_matches.findMany({
+    where: { event_window_id: match.event_window_id, session_id: match.session_id },
+    select: { team_id: true, placement: true },
+  })
+  return rows.flatMap((r) =>
+    r.placement === null ? [] : [{ placement: r.placement, memberIds: r.team_id.split(":") }]
+  )
+}
+
+// Each player's eliminations, knocks and damage in a match, as event times in
+// replay seconds (game_time_seconds: since bus launch), for totalling up to
+// the replay's current time. These are the tables (and so the definitions)
+// behind the leaderboard and players pages: eliminations of opponents (no
+// self-eliminations), knocks of opponents (no self- or teammate knocks), and
+// damage only on standing opponents (HIT_PLAYER: not knocked players, not
+// teammates). Times are sorted; damage pairs are [t, amount].
+export type PlayerEventTimes = {
+  elims: number[]
+  knocks: number[]
+  dealt: [number, number][]
+  taken: [number, number][]
+}
+
+export async function getMatchPlayerEvents(matchId: string): Promise<Record<string, PlayerEventTimes>> {
+  const where = { match_id: matchId }
+  const [players, elims, knocks, damage] = await Promise.all([
+    prisma.match_players.findMany({ where, select: { id: true, epic_id: true } }),
+    prisma.elimination_events.findMany({ where, select: { actor_id: true, game_time_seconds: true } }),
+    prisma.knock_events.findMany({ where, select: { actor_id: true, game_time_seconds: true } }),
+    prisma.damage_dealt_events.findMany({
+      where,
+      select: { actor_id: true, recipient_id: true, damage_amount: true, game_time_seconds: true },
+    }),
+  ])
+
+  const epicOf = new Map(players.map((p) => [p.id, p.epic_id]))
+  const events: Record<string, PlayerEventTimes> = {}
+  const of = (playerId: number | null) => {
+    const epicId = playerId === null ? undefined : epicOf.get(playerId)
+    if (epicId === undefined) return null
+    return (events[epicId] ??= { elims: [], knocks: [], dealt: [], taken: [] })
+  }
+  const time = (t: number | null) => Math.round((t ?? 0) * 100) / 100
+  const amount = (d: number) => Math.round(d * 10) / 10
+
+  for (const e of elims) of(e.actor_id)?.elims.push(time(e.game_time_seconds))
+  for (const k of knocks) of(k.actor_id)?.knocks.push(time(k.game_time_seconds))
+  for (const d of damage) {
+    of(d.actor_id)?.dealt.push([time(d.game_time_seconds), amount(d.damage_amount)])
+    of(d.recipient_id)?.taken.push([time(d.game_time_seconds), amount(d.damage_amount)])
+  }
+  for (const e of Object.values(events)) {
+    e.elims.sort((a, b) => a - b)
+    e.knocks.sort((a, b) => a - b)
+    e.dealt.sort((a, b) => a[0] - b[0])
+    e.taken.sort((a, b) => a[0] - b[0])
+  }
+  return events
 }
 
 // ============================================================================
