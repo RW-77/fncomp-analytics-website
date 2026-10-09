@@ -11,7 +11,7 @@ import {
   resolveRegion,
 } from "@/lib/tournaments"
 
-import TournamentStatsClient from "../../tournamentStatsClient"
+import TournamentStatsClient from "../tournamentStatsClient"
 
 type PageProps = {
   params: Promise<{ tournamentId: string }>
