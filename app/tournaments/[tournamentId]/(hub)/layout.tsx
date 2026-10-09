@@ -10,7 +10,7 @@ import {
   SerializedEventWindow,
   TournamentMeta,
   TournamentTabNav,
-} from "./tournament-nav"
+} from "../tournament-nav"
 
 type LayoutProps = {
   params: Promise<{ tournamentId: string }>
