@@ -13,13 +13,7 @@ import {
 } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
 import { panelFont } from '@/components/replay/panel-font'
-
-export type TeamOption = {
-  id: number
-  label: string            // "player + player"
-  engagementCount: number
-  placement?: number       // where the team finished, from the leaderboard
-}
+import type { TeamOption } from '@/lib/replay/use-engagements'
 
 // "Viewing as": picks the team whose perspective the page shows. A button that
 // opens a searchable list of teams; search matches player names.
@@ -29,7 +23,7 @@ export function TeamFilter({
   value,
   onChange,
 }: {
-  teams: TeamOption[]                  // teams that appear in at least one fight
+  teams: TeamOption[]
   totalEngagements: number             // for the "All teams" option
   value: number | null                 // selected team id, or null for all teams
   onChange: (teamId: number | null) => void

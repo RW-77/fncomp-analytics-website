@@ -8,12 +8,16 @@ import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/tournaments", label: "Tournaments" },
+  // Match pages (/matches/<id>) belong to a tournament, so they count as this section.
+  { href: "/tournaments", label: "Tournaments", alsoActiveUnder: "/matches/" },
   { href: "/docs", label: "Docs" },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
+  // A match page runs edge to edge, so the nav does too: no max width, and the
+  // same 16px inset as the left panel's content, so the logo lines up with it.
+  const fullBleed = pathname.startsWith("/matches/")
   // Match the wider tournament workspace so the nav aligns with the page below it.
   const wide = pathname.startsWith("/tournaments/")
   // On docs pages, mirror fumadocs' centered layout so the logo tracks the
@@ -28,7 +32,9 @@ export function Navigation() {
       <div
         className={cn(
           "flex h-14 items-center gap-[1.6rem] sm:gap-[2.8rem]",
-          docs
+          fullBleed
+            ? "px-4"
+            : docs
             ? "mx-auto max-w-[1552px] px-4"
             : wide
               ? "mx-auto max-w-[1800px] px-4 md:px-14"
@@ -54,7 +60,9 @@ export function Navigation() {
             const isActive =
               item.href === "/"
                 ? pathname === item.href
-                : pathname === item.href || pathname.startsWith(`${item.href}/`)
+                : pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`) ||
+                  (item.alsoActiveUnder !== undefined && pathname.startsWith(item.alsoActiveUnder))
 
             return (
               <Link

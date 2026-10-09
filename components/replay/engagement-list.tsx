@@ -1,14 +1,9 @@
 'use client'
 
-import { EVENT_TYPES, engagementType, type Engagement } from '@/lib/replay/engagements'
+import { EVENT_TYPES, engagementType, type NumberedEngagement } from '@/lib/replay/engagements'
 import { OUTCOME_COLORS } from '@/components/replay/outcome-chip'
 import { formatClock, formatDuration } from '@/lib/replay/format'
 import { cn } from '@/lib/utils'
-
-export type NumberedEngagement = {
-  engagement: Engagement
-  number: number          // the same number as its circle on the map
-}
 
 // The left panel's timeline: one row per event in time order, joined by a rail.
 // Each row has the start and end time, the numbered circle (colored by the

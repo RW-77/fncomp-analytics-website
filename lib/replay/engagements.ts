@@ -154,6 +154,13 @@ export const OUTCOME_HEX: Record<Outcome, string> = {
   lost: '#f87171',
 }
 
+// An engagement with its number in the viewed team's list: the number its row
+// and its circle on the map both show.
+export type NumberedEngagement = {
+  engagement: Engagement
+  number: number
+}
+
 // The slim view of an engagement that ReplayClient draws as a badge on the map
 // (and as a mark on the scrubber, when viewing as a team).
 export type EngagementOverlay = {
@@ -220,4 +227,26 @@ export function buildTeamLabels(metadata: MatchMetadata): Record<number, string>
     labels[Number(team)] = names.join(' + ')
   }
   return labels
+}
+
+// Every per-match lookup the panels need, built once from the metadata.
+export type MatchRoster = {
+  teamMembers: Record<number, string[]>     // team id -> player ids
+  teamRosters: Record<number, string[]>     // team id -> player names
+  teamLabels: Record<number, string>        // team id -> "player + player"
+  playerNames: Record<string, string>       // player id -> name
+  teamOfPlayer: Record<string, number>      // player id -> team id
+}
+
+export function buildMatchRoster(metadata: MatchMetadata): MatchRoster {
+  const teamMembers = buildTeamMembers(metadata)
+  const teamOfPlayer: Record<string, number> = {}
+  for (const [team, ids] of Object.entries(teamMembers)) for (const id of ids) teamOfPlayer[id] = Number(team)
+  return {
+    teamMembers,
+    teamRosters: buildTeamRosters(metadata),
+    teamLabels: buildTeamLabels(metadata),
+    playerNames: metadata.id_to_username ?? {},
+    teamOfPlayer,
+  }
 }

@@ -1,12 +1,57 @@
 import { prisma } from "@/lib/prisma"
 import { PlayerRow } from "@/app/tournaments/[tournamentId]/columns"
 import { StatFilters, FilterCapabilities } from "@/lib/types"
-import { Button } from "@/components/ui/button";
-import { Heading1 } from "lucide-react";
+import { getTournamentDisplayTitle } from "@/lib/tournaments"
 
 // ============================================================================
 // Replay
 // ============================================================================
+
+// Where a match sits: its tournament, region and day, and its number among
+// its event window's games by start time (how the matches list numbers a
+// day's games). The window's matches are all scored games, so that's also
+// the leaderboard's game number.
+export type MatchSummary = {
+  matchId: string
+  tournamentId: string | null
+  tournamentTitle: string | null
+  regionCode: string | null
+  dayIndex: number | null       // 1-based; null for a single-day event
+  startTime: Date | null
+  number: number | null         // null when the start time is unknown
+}
+
+export async function getMatchSummary(matchId: string): Promise<MatchSummary | null> {
+  const match = await prisma.matches.findUnique({
+    where: { match_id: matchId },
+    select: {
+      start_time: true,
+      event_window_id: true,
+      event_windows: { select: { tournament_id: true, day_index: true, events: { select: { region_code: true } } } },
+    },
+  })
+  if (!match) return null
+  const tournamentId = match.event_windows.tournament_id
+  const [tournament, earlier] = await Promise.all([
+    tournamentId
+      ? prisma.tournaments.findUnique({ where: { tournament_id: tournamentId }, select: { title: true } })
+      : null,
+    match.start_time
+      ? prisma.matches.count({
+          where: { event_window_id: match.event_window_id, start_time: { lt: match.start_time } },
+        })
+      : null,
+  ])
+  return {
+    matchId,
+    tournamentId,
+    tournamentTitle: tournamentId ? getTournamentDisplayTitle({ tournament_id: tournamentId, title: tournament?.title ?? null }) : null,
+    regionCode: match.event_windows.events.region_code,
+    dayIndex: match.event_windows.day_index,
+    startTime: match.start_time,
+    number: earlier === null ? null : earlier + 1,
+  }
+}
 
 export async function getMatchBuildVersion(
   matchId: string

@@ -120,8 +120,9 @@
 }
 
 /*
- * Surfaces of the replay workspace (match page / replay lab): the page behind
- * the panels, the panels, and the shades used inside them.
+ * Surfaces of the replay UI: the page behind the panels, the panels, and the
+ * shades used inside them. These navy defaults suit the tournament pages
+ * (the matches tab's viewer); the match page swaps them for dark gray below.
  */
 :root {
   --app-bg: #0e1523;
@@ -131,6 +132,49 @@
   --panel-inset: #0f1726;     /* fields sunk into a panel */
   --panel-line: #263250;      /* rules and the timeline rail */
   --panel-control: #34446b;   /* outlined button borders */
+}
+
+/*
+ * Dark gray: the match page's theme. The page marks its root with
+ * data-theme="dark-gray", and :has() restyles the whole document from there
+ * (the nav, the page background, and popovers portaled outside the page)
+ * straight from the server-rendered markup, so the default never flashes.
+ * Unlayered, so it beats Tailwind's theme variables.
+ */
+:root:has([data-theme='dark-gray']) {
+  --app-bg: #111112;
+  --panel: #18181a;
+  --panel-raised: #212124;
+  --panel-selected: #29292c;
+  --panel-inset: #0f0f10;
+  --panel-line: #2e2e32;
+  --panel-control: #44444a;
+
+  --background: var(--app-bg);
+  --card: var(--panel);
+  --popover: oklch(0.23 0 0);
+  --secondary: var(--panel-raised);
+  --muted: var(--panel-raised);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.29 0 0);
+
+  /* Neutral grays in place of the site's blue-tinted slate. */
+  --color-slate-100: oklch(97% 0 0);
+  --color-slate-200: oklch(92.2% 0 0);
+  --color-slate-300: oklch(87% 0 0);
+  --color-slate-400: oklch(70.8% 0 0);
+  --color-slate-500: oklch(55.6% 0 0);
+  --color-slate-600: oklch(43.9% 0 0);
+  --color-slate-700: oklch(37.1% 0 0);
+  --color-slate-800: oklch(26.9% 0 0);
+  --color-slate-900: oklch(20.5% 0 0);
+}
+:root:has([data-theme='dark-gray']) body {
+  background: var(--app-bg);
+}
+/* The site nav, see-through over the page like its default. */
+:root:has([data-theme='dark-gray']) body > nav {
+  background-color: color-mix(in srgb, var(--app-bg) 85%, transparent);
 }
 
 /* Gold gradient text with a soft glow — used for the hero title accent word. */
