@@ -4,6 +4,7 @@ import { Coins, Package } from 'lucide-react'
 import type { InventoryItem, ReplayEngine } from '@/lib/replay/engine'
 import type { ItemInfo, PlayerSkin } from '@/lib/replay/match-data'
 import { useInventory } from '@/lib/replay/use-replay'
+import { LoadNote, Skeleton } from '@/components/replay/load-state'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -65,8 +66,13 @@ export function PlayerInventory({
   pickaxe: PlayerSkin | undefined
   compact?: boolean         // the team panel: the hotbar row only
 }) {
-  const items = useInventory(engine, playerId)
-  if (items === null) return null   // still loading
+  const inventory = useInventory(engine, playerId)
+  if (inventory.status === 'loading') return <InventorySkeleton compact={compact} />
+  if (inventory.status === 'missing') return <LoadNote className="text-xs">No inventory data for this match.</LoadNote>
+  if (inventory.status === 'error') {
+    return <LoadNote className="text-xs" onRetry={() => engine.retry()}>Couldn&apos;t load the inventory.</LoadNote>
+  }
+  const items = inventory.data
   const info = engine.itemInfo
 
   // Totals by item id (a material or ammo type can span several slots).
@@ -143,6 +149,24 @@ export function PlayerInventory({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// The hotbar row (and, in the player panel, the gold and materials row) at
+// their loaded size, while the inventory loads.
+function InventorySkeleton({ compact }: { compact: boolean }) {
+  return (
+    <div className="grid gap-1.5">
+      <div
+        className={cn('grid', compact ? 'gap-0.5' : 'gap-1')}
+        style={{ gridTemplateColumns: `repeat(${HOTBAR_COLUMNS}, minmax(0, 1fr))` }}
+      >
+        {Array.from({ length: HOTBAR_COLUMNS }, (_, i) => (
+          <Skeleton key={i} className="aspect-square rounded-none" />
+        ))}
+      </div>
+      {!compact && <Skeleton className="h-7 rounded-none" />}
     </div>
   )
 }

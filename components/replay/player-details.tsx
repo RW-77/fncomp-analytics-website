@@ -5,7 +5,7 @@ import type { PlayerVitals, ReplayEngine } from '@/lib/replay/engine'
 import type { PlayerSkin } from '@/lib/replay/match-data'
 import { useMatchTotals, useReplay } from '@/lib/replay/use-replay'
 import { DetailsHeader } from '@/components/replay/details-header'
-import { MatchTotalsView, type StatsStyle } from '@/components/replay/match-totals'
+import { MatchTotalsView } from '@/components/replay/match-totals'
 import { PlayerInventory } from '@/components/replay/player-inventory'
 import { SkinIcon } from '@/components/replay/skin-icon'
 import { cn } from '@/lib/utils'
@@ -104,7 +104,6 @@ export function PlayerDetails({
   skin,
   pickaxe,
   teamLabel,
-  statsStyle = 'tiles',
   onClose,
   onGoToTeam,
 }: {
@@ -114,7 +113,6 @@ export function PlayerDetails({
   skin: PlayerSkin | undefined
   pickaxe: PlayerSkin | undefined
   teamLabel: string
-  statsStyle?: StatsStyle
   onClose: () => void
   onGoToTeam?: () => void                 // opens the player's team (and views as it)
 }) {
@@ -155,7 +153,7 @@ export function PlayerDetails({
 
       <section className="grid gap-2">
         <h3 className="text-sm font-medium text-slate-400">Stats</h3>
-        {totals && <MatchTotalsView totals={totals} style={statsStyle} />}
+        <MatchTotalsView totals={totals} onRetry={() => engine.retry()} />
       </section>
     </div>
   )

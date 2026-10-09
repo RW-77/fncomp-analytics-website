@@ -132,6 +132,18 @@ export type PlayerVitals = {
   knocked: boolean
 }
 
+// Where a loaded file stands. 'missing' is a 404: the pipeline hasn't built
+// it for this match, which is not a failure.
+export type AssetStatus = 'loading' | 'ready' | 'missing' | 'error'
+
+// Whether the movement data for the current time is there:
+//   loading   — waiting for the first chunk (nothing to draw yet)
+//   buffering — waiting for the chunk at the current time (after a seek, or
+//               playback outran the prefetch); the clock holds meanwhile
+//   ready     — playing / drawable
+//   error     — that chunk failed; it isn't requested again until retry()
+export type ReplayStatus = 'loading' | 'buffering' | 'ready' | 'error'
+
 // What React components can read (through useReplay). A new snapshot object
 // is made only when one of these values changes, and the values are rounded so
 // that happens a few times a second at most: `time` moves in 0.1 s steps,
@@ -143,13 +155,17 @@ export type ReplaySnapshot = {
   paused: boolean
   atEnd: boolean
   rate: number                         // playback speed; 1 = real time
-  loadingChunk: number | null          // the chunk the current time needs, while it loads
+  replay: ReplayStatus
   playersAlive: number
   zone: ZoneHudInfo | null
   vitals: Record<string, PlayerVitals> // player id -> vitals
-  inventoryLoaded: boolean             // inventoryAt() has data (or the match has none)
-  statsLoaded: boolean                 // statsAt() has data (or the match has none)
+  inventory: AssetStatus               // inventoryAt() has data once 'ready'
+  stats: AssetStatus                   // statsAt() has data once 'ready'
 }
+
+// The files besides the movement chunks. Zones and shots only decorate the
+// map, so their status isn't in the snapshot, but retry() reloads them too.
+type Asset = 'zones' | 'shots' | 'inventory' | 'stats'
 
 // Camera commands. The engine doesn't move the camera itself; the viewport
 // that owns the canvas attaches an implementation (see attachCamera).
@@ -347,19 +363,19 @@ export class ReplayEngine {
   private readonly idToUsername: Record<string, string>
   private chunks = new Map<number, ChunkData>()
   private loadingChunks = new Set<number>()
+  // Chunks whose load failed. Not requested again until retry(): without
+  // this, playback would re-request a missing chunk every frame.
+  private failedChunks = new Set<number>()
+  private replayStatus: ReplayStatus = 'loading'
   private zonePhases: ZonePhase[] = []
   private allShots: Shot[] = []
-  private zonesLoaded = false
-  private shotsLoaded = false
   private inventoryItems: string[] = []
   private inventoryChanges: Record<string, InventoryChange[]> = {}
-  private inventoryLoaded = false
   // Display info (name, category, rarity, icon) for every item id in the
   // match's inventories; empty until loaded.
   itemInfo: Record<string, ItemInfo> = {}
   private playerStats: Record<string, PlayerStatTimes> = {}
-  private statsLoaded = false
-  private loadingChunk: number | null = null
+  private assets: Record<Asset, AssetStatus> = { zones: 'loading', shots: 'loading', inventory: 'loading', stats: 'loading' }
 
   // ---- the loop ----
   private rafId: number | null = null
@@ -399,12 +415,12 @@ export class ReplayEngine {
       paused: false,
       atEnd: false,
       rate: 1,
-      loadingChunk: null,
+      replay: 'loading',
       playersAlive: 0,
       zone: null,
       vitals: {},
-      inventoryLoaded: false,
-      statsLoaded: false,
+      inventory: 'loading',
+      stats: 'loading',
     }
   }
 
@@ -426,10 +442,7 @@ export class ReplayEngine {
   start() {
     if (this.rafId !== null) return
     this.abort = new AbortController()
-    if (!this.zonesLoaded) void this.loadZones(this.abort.signal)
-    if (!this.shotsLoaded) void this.loadShots(this.abort.signal)
-    if (!this.inventoryLoaded) void this.loadInventory(this.abort.signal)
-    if (!this.statsLoaded) void this.loadPlayerStats(this.abort.signal)
+    this.loadAssets(this.abort.signal)
     this.lastFrameAt = null
     this.stale = true
     this.rafId = requestAnimationFrame(this.tick)
@@ -474,6 +487,17 @@ export class ReplayEngine {
     this.vitalsStale = true
     // Update right away rather than on the next frame, so a dragged scrubber
     // and a paused panel show the new time immediately.
+    this.update()
+    this.publish()
+  }
+
+  // Load again whatever failed: movement chunks and the other files.
+  retry() {
+    const signal = this.abort?.signal
+    if (!signal) return   // not started; start() loads everything anyway
+    this.failedChunks.clear()
+    this.loadAssets(signal, ['error'])
+    this.stale = true
     this.update()
     this.publish()
   }
@@ -551,8 +575,9 @@ export class ReplayEngine {
     const dt = this.lastFrameAt === null ? 0 : Math.min(MAX_FRAME_STEP_S, (now - this.lastFrameAt) / 1000)
     this.lastFrameAt = now
 
-    // 1. move the clock
-    if (!this._paused && dt > 0) {
+    // 1. move the clock, unless the data for the current time isn't there:
+    // like a video buffering, the replay waits rather than skipping ahead
+    if (!this._paused && dt > 0 && this.replayStatus === 'ready') {
       this._time = Math.min(this.duration, this._time + dt * this._rate)
       if (this._time >= this.duration) this._paused = true   // stop at the end
       this.stale = true
@@ -586,7 +611,13 @@ export class ReplayEngine {
 
     this.ensureChunk(chunkIndex)
     this.ensureChunk(chunkIndex + 1)   // prefetch the next one
-    this.loadingChunk = this.chunks.has(chunkIndex) ? null : chunkIndex
+    const total = this.metadata.total_chunks
+    this.replayStatus =
+      this.chunks.has(chunkIndex) ? 'ready'
+        // a chunk past the end can't load: the metadata and data disagree
+        : this.failedChunks.has(chunkIndex) || (total !== undefined && chunkIndex >= total) ? 'error'
+        : this.chunks.size === 0 ? 'loading'
+        : 'buffering'
 
     const current = this.getFrame(frame, framesPerChunk)
     const next = this.getFrame(frame + 1, framesPerChunk)
@@ -623,18 +654,18 @@ export class ReplayEngine {
       this._paused === prev.paused &&
       atEnd === prev.atEnd &&
       this._rate === prev.rate &&
-      this.loadingChunk === prev.loadingChunk &&
+      this.replayStatus === prev.replay &&
       playersAlive === prev.playersAlive &&
       zone === prev.zone &&
       vitals === prev.vitals &&
-      this.inventoryLoaded === prev.inventoryLoaded &&
-      this.statsLoaded === prev.statsLoaded
+      this.assets.inventory === prev.inventory &&
+      this.assets.stats === prev.stats
     ) {
       return
     }
     this.snapshot = {
-      time, paused: this._paused, atEnd, rate: this._rate, loadingChunk: this.loadingChunk,
-      playersAlive, zone, vitals, inventoryLoaded: this.inventoryLoaded, statsLoaded: this.statsLoaded,
+      time, paused: this._paused, atEnd, rate: this._rate, replay: this.replayStatus,
+      playersAlive, zone, vitals, inventory: this.assets.inventory, stats: this.assets.stats,
     }
     for (const listener of this.snapshotListeners) listener()
   }
@@ -683,7 +714,7 @@ export class ReplayEngine {
     // Don't request chunks past the end of the match (they'd 404).
     const total = this.metadata.total_chunks
     if (total !== undefined && index >= total) return
-    if (this.chunks.has(index) || this.loadingChunks.has(index)) return
+    if (this.chunks.has(index) || this.loadingChunks.has(index) || this.failedChunks.has(index)) return
     this.loadingChunks.add(index)
     void this.loadChunk(index, signal)
   }
@@ -692,116 +723,104 @@ export class ReplayEngine {
     try {
       const params = new URLSearchParams({ matchId: this.metadata.match_id, chunkIndex: String(index), v: this.assetVersion })
       const response = await fetch(`/api/replay/movement-chunk?${params}`, { signal })
-      if (!response.ok) {
-        console.error('Failed to fetch movement chunk', await response.text())
-        return
-      }
+      if (!response.ok) throw new Error(`movement chunk ${index}: HTTP ${response.status}`)
       const parsed = await npy.load(await response.arrayBuffer())
-      if (!(parsed.data instanceof Float32Array)) {
-        throw new Error(`Expected Float32Array chunk data, got ${parsed.data.constructor.name}`)
-      }
-      if (parsed.shape.length !== 3) {
-        throw new Error(`Expected 3D chunk shape, got [${parsed.shape.join(', ')}]`)
+      if (!(parsed.data instanceof Float32Array) || parsed.shape.length !== 3) {
+        throw new Error(`movement chunk ${index}: not a 3D float32 array`)
       }
       if (signal.aborted) return
       this.chunks.set(index, { data: parsed.data, shape: parsed.shape as [number, number, number] })
-      this.stale = true
-      this.vitalsStale = true
-    } catch (err) {
-      if (!signal.aborted) console.error('Movement chunk error', err)
+    } catch {
+      // The status ('error' once the replay reaches this chunk) is the report.
+      if (!signal.aborted) this.failedChunks.add(index)
     } finally {
       // stop() already cleared the set for aborted loads (and a restarted
-      // engine may be loading this chunk again), so only clear our own.
-      if (!signal.aborted) this.loadingChunks.delete(index)
+      // engine may be loading this chunk again), so only touch our own.
+      if (!signal.aborted) {
+        this.loadingChunks.delete(index)
+        this.stale = true
+        this.vitalsStale = true
+      }
     }
   }
 
-  // zones.json: sparse, one record per phase. 404 is expected for matches
-  // processed before the zone ETL existed.
-  private async loadZones(signal: AbortSignal) {
-    try {
-      const res = await fetch(`/api/replay/zones?${new URLSearchParams({ matchId: this.metadata.match_id, v: this.assetVersion })}`, { signal })
-      if (!res.ok) {
-        if (res.status !== 404) console.error('Failed to fetch zones', res.status)
-        this.zonesLoaded = true
-        return
-      }
-      this.zonePhases = (await res.json()) as ZonePhase[]
-      this.zonesLoaded = true
-      this.stale = true
-    } catch (err) {
-      if (!signal.aborted) console.error('Zone fetch error', err)
+  // Starts loading every file whose status is one of `which` (by default,
+  // everything not loaded yet). Each settles on its own; none blocks another.
+  private loadAssets(signal: AbortSignal, which: AssetStatus[] = ['loading', 'error']) {
+    const id = encodeURIComponent(this.metadata.match_id)
+    const timeline = new URLSearchParams({ matchId: this.metadata.match_id, v: this.assetVersion })
+    const loaders: Record<Asset, [string, (data: unknown) => void]> = {
+      // Timeline files are served immutable, so they carry the timeline version.
+      zones: [`/api/replay/zones?${timeline}`, (data) => this.applyZones(data)],
+      shots: [`/api/replay/shots?${timeline}`, (data) => this.applyShots(data)],
+      inventory: [`/api/replay/inventory?${new URLSearchParams({ matchId: this.metadata.match_id })}`, (data) => this.applyInventory(data)],
+      stats: [`/api/replay/${id}/player-stats`, (data) => this.applyStats(data)],
+    }
+    for (const asset of Object.keys(loaders) as Asset[]) {
+      if (which.includes(this.assets[asset])) void this.loadAsset(asset, ...loaders[asset], signal)
     }
   }
 
-  // shots.json: thousands per match, one immutable file. 404 is expected for
-  // matches processed before the shots ETL existed.
-  private async loadShots(signal: AbortSignal) {
+  private async loadAsset(asset: Asset, url: string, apply: (data: unknown) => void, signal: AbortSignal) {
+    this.setAssetStatus(asset, 'loading')
     try {
-      const res = await fetch(`/api/replay/shots?${new URLSearchParams({ matchId: this.metadata.match_id, v: this.assetVersion })}`, { signal })
-      if (!res.ok) {
-        if (res.status !== 404) console.error('Failed to fetch shots', res.status)
-        this.shotsLoaded = true
-        return
-      }
-      const data = (await res.json()) as Shot[]
-      // getActiveShots relies on t-ascending order.
-      this.allShots = [...data].sort((a, b) => a.t - b.t)
-      this.shotsLoaded = true
-      this.stale = true
-    } catch (err) {
-      if (!signal.aborted) console.error('Shot fetch error', err)
+      const res = await fetch(url, { signal })
+      if (res.status === 404) return this.setAssetStatus(asset, 'missing')
+      if (!res.ok) throw new Error(`${asset}: HTTP ${res.status}`)
+      const data: unknown = await res.json()
+      if (signal.aborted) return
+      apply(data)   // throws on a malformed file
+      this.setAssetStatus(asset, 'ready')
+    } catch {
+      if (!signal.aborted) this.setAssetStatus(asset, 'error')
     }
   }
 
-  // Whole-match event times per player (eliminations, knocks, damage), from
-  // the DB. A match not processed yet has none; it still counts as loaded.
-  private async loadPlayerStats(signal: AbortSignal) {
-    try {
-      const res = await fetch(`/api/replay/${encodeURIComponent(this.metadata.match_id)}/player-stats`, { signal })
-      if (!res.ok) {
-        console.error('Failed to fetch player stats', res.status)
-        this.statsLoaded = true
-        return
-      }
-      const data = (await res.json()) as { players: Record<string, PlayerEventTimes> }
-      const stats: Record<string, PlayerStatTimes> = {}
-      for (const [playerId, e] of Object.entries(data.players)) {
-        stats[playerId] = {
-          elims: e.elims,
-          knocks: e.knocks,
-          dealtT: e.dealt.map(([t]) => t),
-          dealtSum: runningSums(e.dealt),
-          takenT: e.taken.map(([t]) => t),
-          takenSum: runningSums(e.taken),
-        }
-      }
-      this.playerStats = stats
-      this.statsLoaded = true
-    } catch (err) {
-      if (!signal.aborted) console.error('Player stats fetch error', err)
-    }
+  private setAssetStatus(asset: Asset, status: AssetStatus) {
+    this.assets[asset] = status
+    this.stale = true   // zones and shots change what's drawn
+    this.publish()
   }
 
-  // inventory.json plus item display info: one file per match. 404 is
-  // expected for matches processed before the inventory ETL existed; they
-  // count as loaded with no inventories.
-  private async loadInventory(signal: AbortSignal) {
-    try {
-      const res = await fetch(`/api/replay/inventory?${new URLSearchParams({ matchId: this.metadata.match_id })}`, { signal })
-      if (!res.ok) {
-        if (res.status !== 404) console.error('Failed to fetch inventory', res.status)
-        this.inventoryLoaded = true
-        return
-      }
-      const data = (await res.json()) as InventoryPayload
-      this.inventoryItems = data.items
-      this.inventoryChanges = data.players
-      this.itemInfo = data.itemInfo
-      this.inventoryLoaded = true
-    } catch (err) {
-      if (!signal.aborted) console.error('Inventory fetch error', err)
+  // zones.json: sparse, one record per storm phase.
+  private applyZones(data: unknown) {
+    if (!Array.isArray(data)) throw new Error('zones: not an array')
+    this.zonePhases = data as ZonePhase[]
+  }
+
+  // shots.json: thousands per match. getActiveShots relies on t-ascending order.
+  private applyShots(data: unknown) {
+    if (!Array.isArray(data)) throw new Error('shots: not an array')
+    this.allShots = [...(data as Shot[])].sort((a, b) => a.t - b.t)
+  }
+
+  // inventory.json plus display info for every item in it.
+  private applyInventory(data: unknown) {
+    const d = data as Partial<InventoryPayload> | null
+    if (!d || !Array.isArray(d.items) || typeof d.players !== 'object' || d.players === null) {
+      throw new Error('inventory: malformed')
     }
+    this.inventoryItems = d.items
+    this.inventoryChanges = d.players
+    this.itemInfo = d.itemInfo ?? {}
+  }
+
+  // Whole-match event times per player (eliminations, knocks, damage).
+  private applyStats(data: unknown) {
+    const players = (data as { players?: Record<string, PlayerEventTimes> } | null)?.players
+    if (typeof players !== 'object' || players === null) throw new Error('player stats: malformed')
+    const stats: Record<string, PlayerStatTimes> = {}
+    for (const [playerId, e] of Object.entries(players)) {
+      stats[playerId] = {
+        elims: e.elims ?? [],
+        knocks: e.knocks ?? [],
+        dealtT: (e.dealt ?? []).map(([t]) => t),
+        dealtSum: runningSums(e.dealt ?? []),
+        takenT: (e.taken ?? []).map(([t]) => t),
+        takenSum: runningSums(e.taken ?? []),
+      }
+    }
+    this.playerStats = stats
   }
 }
 

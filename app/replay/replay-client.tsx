@@ -9,7 +9,7 @@
 //     function paints the storm, fight circles, shots and players straight from
 //     the engine. The engine asks for a redraw every frame something moved, so
 //     React isn't involved in playback at all.
-//   - ZoneHud, ChunkLoadingBadge and ReplayControls are normal React components
+//   - ZoneHud, ReplayStatusOverlay and ReplayControls are normal React components
 //     that read the engine's snapshot with useReplay(), so they re-render only
 //     when the numbers they show change (a few times a second at most).
 //
@@ -19,7 +19,7 @@
 // ---------------------------------------------------------------------------
 
 import { Stage, Layer, Image as KonvaImage, Shape } from 'react-konva'
-import { useRef, useEffect, useLayoutEffect } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState } from 'react'
 import { Minus, Pause, Play, Plus, RotateCcw } from 'lucide-react'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
@@ -37,6 +37,7 @@ import { OUTCOME_HEX, type EngagementOverlay } from '@/lib/replay/engagements'
 import { SHOT_FLASH_SECONDS, type ReplayCamera, type ReplayEngine, type ZoneHudInfo } from '@/lib/replay/engine'
 import { useReplay, useReplayEngine } from '@/lib/replay/use-replay'
 import { formatClock } from '@/lib/replay/format'
+import { CenteredStatus, Spinner } from '@/components/replay/load-state'
 
 // ---------------------------------------------------------------------------
 // YAW / DIRECTION TUNING
@@ -464,14 +465,41 @@ function ZoneHud({ engine }: { engine: ReplayEngine }) {
   )
 }
 
-function ChunkLoadingBadge({ engine }: { engine: ReplayEngine }) {
-  const loading = useReplay(engine, (s) => s.loadingChunk)
-  if (loading === null) return null
+// What the map shows while the data for the current time isn't there: a
+// cover until the first chunk arrives, a small badge while buffering after a
+// seek, or the failure with Retry. The clock holds in all three.
+function ReplayStatusOverlay({ engine }: { engine: ReplayEngine }) {
+  const status = useReplay(engine, (s) => s.replay)
+  if (status === 'ready') return null
+  if (status === 'buffering') {
+    return (
+      <div
+        role="status"
+        className="pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-sm bg-[var(--panel)]/90 px-3 py-1.5 text-sm text-slate-200"
+      >
+        <Spinner className="size-3.5" />
+        Buffering…
+      </div>
+    )
+  }
   return (
-    <div className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-1 text-sm text-white">
-      Loading chunk {loading}…
+    <div className="absolute inset-0 z-20 bg-[var(--app-bg)]/55">
+      {status === 'loading' ? (
+        <CenteredStatus loading>Loading replay…</CenteredStatus>
+      ) : (
+        <CenteredStatus onRetry={() => engine.retry()}>Couldn&apos;t load the replay data.</CenteredStatus>
+      )}
     </div>
   )
+}
+
+// The map image, with a way to load it again after a failure. use-image
+// reloads when its URL changes; a fragment changes the URL without changing
+// the request (the presigned S3 URL can't take another query parameter).
+function useMapImage(url: string) {
+  const [attempt, setAttempt] = useState(0)
+  const [image, status] = useImage(attempt ? `${url}#retry-${attempt}` : url)
+  return { image, status, retry: () => setAttempt((a) => a + 1) }
 }
 
 // Playback speeds the − / + buttons step through, and the jump size.
@@ -692,30 +720,39 @@ export default function ReplayClient({
 }: ReplayClientProps) {
   const ownEngine = useReplayEngine(givenEngine ? null : matchMetadata)
   const engine = givenEngine ?? ownEngine
+  const map = useMapImage(mapImageUrl)
   if (!engine) return null
 
   return (
     <div
-      className="relative inline-flex flex-col overflow-hidden"
-      style={{ backgroundColor: '#2f3136' }}
+      className="relative overflow-hidden bg-[var(--panel)]"
+      style={{ width: stageWidth, height: stageHeight }}
       data-map-id={mapDefinition.id}
     >
-      <ChunkLoadingBadge engine={engine} />
-      <ZoneHud engine={engine} />
-      <ReplayViewport
-        engine={engine}
-        mapDefinition={mapDefinition}
-        mapImageUrl={mapImageUrl}
-        stageWidth={stageWidth}
-        stageHeight={stageHeight}
-        onPlayerClick={onPlayerClick}
-        engagements={engagements}
-        selectedEngagementId={selectedEngagementId}
-        onEngagementClick={onEngagementClick}
-        onFollowChange={onFollowChange}
-      />
-      {/* Floating controls overlaid on the bottom of the map. */}
-      <ReplayControls engine={engine} engagements={engagements} />
+      {map.status === 'failed' ? (
+        <CenteredStatus onRetry={map.retry}>Couldn&apos;t load the map.</CenteredStatus>
+      ) : !map.image ? (
+        <CenteredStatus loading>Loading map…</CenteredStatus>
+      ) : (
+        <>
+          <ReplayStatusOverlay engine={engine} />
+          <ZoneHud engine={engine} />
+          <ReplayViewport
+            engine={engine}
+            mapDefinition={mapDefinition}
+            mapImage={map.image}
+            stageWidth={stageWidth}
+            stageHeight={stageHeight}
+            onPlayerClick={onPlayerClick}
+            engagements={engagements}
+            selectedEngagementId={selectedEngagementId}
+            onEngagementClick={onEngagementClick}
+            onFollowChange={onFollowChange}
+          />
+          {/* Floating controls overlaid on the bottom of the map. */}
+          <ReplayControls engine={engine} engagements={engagements} />
+        </>
+      )}
     </div>
   )
 }
@@ -761,7 +798,7 @@ type Follow = {
 function ReplayViewport({
   engine,
   mapDefinition,
-  mapImageUrl,
+  mapImage,
   stageWidth,
   stageHeight,
   onPlayerClick,
@@ -772,7 +809,7 @@ function ReplayViewport({
 }: {
   engine: ReplayEngine
   mapDefinition: ReplayMapDefinition
-  mapImageUrl: string
+  mapImage: HTMLImageElement
   stageWidth: number
   stageHeight: number
   onPlayerClick?: (playerId: string) => void
@@ -781,7 +818,6 @@ function ReplayViewport({
   onEngagementClick?: (engagementId: number) => void
   onFollowChange?: (playerIds: string[] | null) => void
 }) {
-  const [mapImage] = useImage(mapImageUrl)
   const stageRef = useRef<KonvaStage>(null)
   const sceneLayerRef = useRef<KonvaLayer>(null)
   const hitsRef = useRef<HitTarget[]>([])
@@ -1061,8 +1097,6 @@ function ReplayViewport({
     if (hit?.kind === 'player') onPlayerClick?.(hit.id)
     else if (hit?.kind === 'engagement') onEngagementClick?.(hit.id)
   }
-
-  if (!mapImage) return null
 
   const dragBoundFunc = (pos: { x: number; y: number }) => {
     const stage = stageRef.current
