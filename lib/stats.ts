@@ -7,10 +7,8 @@ import { getTournamentDisplayTitle } from "@/lib/tournaments"
 // Replay
 // ============================================================================
 
-// Where a match sits: its tournament, region and day, and its number among
-// its event window's games by start time (how the matches list numbers a
-// day's games). The window's matches are all scored games, so that's also
-// the leaderboard's game number.
+// Where a match sits: its tournament, region and day, and its number (see
+// getMatchNumbers).
 export type MatchSummary = {
   matchId: string
   tournamentId: string | null
@@ -18,7 +16,19 @@ export type MatchSummary = {
   regionCode: string | null
   dayIndex: number | null       // 1-based; null for a single-day event
   startTime: Date | null
-  number: number | null         // null when the start time is unknown
+  number: number | null         // null when the match has no tournament
+}
+
+// Each game's number in its tournament: its position by start time among all
+// of the tournament's games in that region, across days, so Day 2's first
+// game follows Day 1's last. The match page and the match cards both use it.
+export async function getMatchNumbers(tournamentId: string, regionCode: string | null): Promise<Map<string, number>> {
+  const matches = await prisma.matches.findMany({
+    where: { event_windows: { tournament_id: tournamentId, events: { region_code: regionCode } } },
+    select: { match_id: true },
+    orderBy: [{ start_time: { sort: "asc", nulls: "last" } }, { match_id: "asc" }],
+  })
+  return new Map(matches.map((m, i) => [m.match_id, i + 1]))
 }
 
 export async function getMatchSummary(matchId: string): Promise<MatchSummary | null> {
@@ -26,30 +36,26 @@ export async function getMatchSummary(matchId: string): Promise<MatchSummary | n
     where: { match_id: matchId },
     select: {
       start_time: true,
-      event_window_id: true,
       event_windows: { select: { tournament_id: true, day_index: true, events: { select: { region_code: true } } } },
     },
   })
   if (!match) return null
   const tournamentId = match.event_windows.tournament_id
-  const [tournament, earlier] = await Promise.all([
+  const regionCode = match.event_windows.events.region_code
+  const [tournament, numbers] = await Promise.all([
     tournamentId
       ? prisma.tournaments.findUnique({ where: { tournament_id: tournamentId }, select: { title: true } })
       : null,
-    match.start_time
-      ? prisma.matches.count({
-          where: { event_window_id: match.event_window_id, start_time: { lt: match.start_time } },
-        })
-      : null,
+    tournamentId ? getMatchNumbers(tournamentId, regionCode) : null,
   ])
   return {
     matchId,
     tournamentId,
     tournamentTitle: tournamentId ? getTournamentDisplayTitle({ tournament_id: tournamentId, title: tournament?.title ?? null }) : null,
-    regionCode: match.event_windows.events.region_code,
+    regionCode,
     dayIndex: match.event_windows.day_index,
     startTime: match.start_time,
-    number: earlier === null ? null : earlier + 1,
+    number: numbers?.get(matchId) ?? null,
   }
 }
 

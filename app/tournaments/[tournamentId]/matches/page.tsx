@@ -9,7 +9,8 @@ import {
   resolveRegion,
 } from "@/lib/tournaments"
 
-import { MatchesClient } from "./matches-client"
+import { getMatchCards } from "@/lib/replay/match-cards"
+import { MatchCard } from "@/components/matches/match-card"
 
 type PageProps = {
   params: Promise<{ tournamentId: string }>
@@ -77,18 +78,25 @@ export default async function MatchesPage({ params, searchParams }: PageProps) {
       ? eventWindowsForRegion
       : eventWindowsForRegion.filter((ew) => ew.day_index === effectiveDay)
 
-  const selectedEventWindowIds = selectedEventWindows.map((ew) => ew.event_window_id)
-
-  const matches = await prisma.matches.findMany({
-    where: { event_window_id: { in: selectedEventWindowIds } },
-    select: {
-      match_id: true,
-      start_time: true,
-      player_count: true,
-      map_path: true,
-    },
-    orderBy: { start_time: "asc" },
+  const { cards, maps } = await getMatchCards({
+    tournamentId,
+    regionCode: effectiveRegion,
+    eventWindowIds: selectedEventWindows.map((ew) => ew.event_window_id),
   })
 
-  return <MatchesClient matches={matches} />
+  if (cards.length === 0) {
+    return (
+      <div className="rounded-[3px] bg-[var(--panel)] px-4 py-10 text-center text-sm text-slate-500">
+        No matches yet.
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+      {cards.map((card) => (
+        <MatchCard key={card.matchId} card={card} map={card.mapKey ? maps[card.mapKey] : null} />
+      ))}
+    </div>
+  )
 }

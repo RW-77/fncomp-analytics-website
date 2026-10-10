@@ -16,7 +16,7 @@ import { getMatchBuildVersion, getMatchLoadouts, getMatchPlacements } from '@/li
 export type ReplayPayload = {
     metadata: MatchMetadata
     mapDefinition: ReplayMapDefinition | null
-    mapImageUrl: string | null            // presigned
+    mapImageUrl: string | null            // see getMapAssets
     skins: Record<string, PlayerSkin>     // player id -> outfit; empty when the match has no loadout data
     pickaxes: Record<string, PlayerSkin>  // player id -> pickaxe cosmetic; likewise
     placements: Record<string, number>    // replay team id -> placement (1 = won); empty when not on the leaderboard

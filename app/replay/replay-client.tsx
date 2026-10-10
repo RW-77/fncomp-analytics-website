@@ -13,9 +13,8 @@
 //     that read the engine's snapshot with useReplay(), so they re-render only
 //     when the numbers they show change (a few times a second at most).
 //
-// Pass `engine` to drive the replay from outside (the page calls engine.seek(),
-// engine.follow(), ...). Without one, ReplayClient makes its own from
-// `matchMetadata`.
+// The page owns the engine and drives the replay through it (engine.seek(),
+// engine.follow(), ...).
 // ---------------------------------------------------------------------------
 
 import { Stage, Layer, Image as KonvaImage, Shape } from 'react-konva'
@@ -32,10 +31,9 @@ import {
   ReplayMapDefinition,
   projectReplayWorldToMapImage,
 } from '@/lib/replay/map-projection'
-import type { MatchMetadata } from '@/lib/replay/match-data'
 import { OUTCOME_HEX, type EngagementOverlay } from '@/lib/replay/engagements'
 import { SHOT_FLASH_SECONDS, type ReplayCamera, type ReplayEngine, type ZoneHudInfo } from '@/lib/replay/engine'
-import { useReplay, useReplayEngine } from '@/lib/replay/use-replay'
+import { useReplay } from '@/lib/replay/use-replay'
 import { formatClock } from '@/lib/replay/format'
 import { CenteredStatus, Spinner } from '@/components/replay/load-state'
 
@@ -495,7 +493,7 @@ function ReplayStatusOverlay({ engine }: { engine: ReplayEngine }) {
 
 // The map image, with a way to load it again after a failure. use-image
 // reloads when its URL changes; a fragment changes the URL without changing
-// the request (the presigned S3 URL can't take another query parameter).
+// the request.
 function useMapImage(url: string) {
   const [attempt, setAttempt] = useState(0)
   const [image, status] = useImage(attempt ? `${url}#retry-${attempt}` : url)
@@ -690,8 +688,7 @@ function SeekTrack({
 // ---------------------------------------------------------------------------
 
 type ReplayClientProps = {
-  engine?: ReplayEngine           // drive the replay from outside; otherwise one is made here
-  matchMetadata?: MatchMetadata   // only needed when no engine is passed
+  engine: ReplayEngine
   mapDefinition: ReplayMapDefinition
   mapImageUrl: string
   stageWidth?: number
@@ -706,8 +703,7 @@ type ReplayClientProps = {
 }
 
 export default function ReplayClient({
-  engine: givenEngine,
-  matchMetadata,
+  engine,
   mapDefinition,
   mapImageUrl,
   stageWidth = 1000,
@@ -718,10 +714,7 @@ export default function ReplayClient({
   onEngagementClick,
   onFollowChange,
 }: ReplayClientProps) {
-  const ownEngine = useReplayEngine(givenEngine ? null : matchMetadata)
-  const engine = givenEngine ?? ownEngine
   const map = useMapImage(mapImageUrl)
-  if (!engine) return null
 
   return (
     <div

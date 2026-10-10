@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Check, ChevronLeft, Copy } from 'lucide-react'
-
-// The match's date in the viewer's time zone, as the matches list shows times.
-const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+import { LocalTime } from '@/components/local-time'
 
 // Top of the match page's left panel: back to the matches list; the
 // tournament, then region, day and date, then the match's number; and a
@@ -55,12 +53,7 @@ export function MatchHeader({
           <span className="text-xs text-slate-500">
             {details.join(' · ')}
             {details.length > 0 && startTime && ' · '}
-            {startTime && (
-              // Formatted in the viewer's time zone, which the server can't know.
-              <time dateTime={startTime} suppressHydrationWarning>
-                {dateFormatter.format(new Date(startTime))}
-              </time>
-            )}
+            {startTime && <LocalTime iso={startTime} format="date" />}
           </span>
         )}
         <h1 className="text-base font-bold leading-tight text-white">{title}</h1>
