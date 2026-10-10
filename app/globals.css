@@ -122,7 +122,7 @@
 /*
  * Surfaces of the replay UI: the page behind the panels, the panels, and the
  * shades used inside them. These navy defaults suit the tournament pages
- * (the matches tab's viewer); the match page swaps them for dark gray below.
+ * (the matches tab's cards); the match page swaps them for dark gray below.
  */
 :root {
   --app-bg: #0e1523;

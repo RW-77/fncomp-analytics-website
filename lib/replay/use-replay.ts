@@ -28,16 +28,12 @@ function notReady(status: Exclude<AssetStatus, 'ready'>): Loadable<never> {
 }
 
 // Creates the engine for a match and runs it while the component is mounted.
-// Returns null until there's metadata. A different metadata object makes a new
-// engine (and stops the old one).
-export function useReplayEngine(metadata: MatchMetadata): ReplayEngine
-export function useReplayEngine(metadata: MatchMetadata | null | undefined): ReplayEngine | null
-export function useReplayEngine(metadata: MatchMetadata | null | undefined): ReplayEngine | null {
+// A different metadata object makes a new engine (and stops the old one).
+export function useReplayEngine(metadata: MatchMetadata): ReplayEngine {
   // Creating the engine does nothing yet (no fetches, no loop) ...
-  const engine = useMemo(() => (metadata ? new ReplayEngine(metadata) : null), [metadata])
+  const engine = useMemo(() => new ReplayEngine(metadata), [metadata])
   // ... start() and stop() do, so they belong in an effect.
   useEffect(() => {
-    if (!engine) return
     engine.start()
     return () => engine.stop()
   }, [engine])

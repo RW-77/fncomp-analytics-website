@@ -6,6 +6,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import type { ReplayMapDefinition } from '@/lib/replay/map-projection'
 import type { MatchEngagements } from '@/lib/replay/engagements'
+import type { ZonePhase } from '@/lib/replay/engine'
 
 const {
     BUCKET_NAME,
@@ -218,6 +219,21 @@ export async function getMatchInventory(matchId: string): Promise<MatchInventory
         const response = await s3Client.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
         if (!response.Body) return null;
         return JSON.parse(await response.Body.transformToString()) as MatchInventory;
+    } catch (e) {
+        if (e instanceof NoSuchKey) return null;
+        throw e;
+    }
+}
+
+// The match's storm phases (zones.json, written with the timeline). null when
+// the match has none.
+export async function getMatchZones(matchId: string): Promise<ZonePhase[] | null> {
+    const key = `replays/matches/${matchId}/zones.json`;
+    try {
+        const response = await s3Client.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
+        if (!response.Body) return null;
+        const zones: unknown = JSON.parse(await response.Body.transformToString());
+        return Array.isArray(zones) ? (zones as ZonePhase[]) : null;
     } catch (e) {
         if (e instanceof NoSuchKey) return null;
         throw e;
