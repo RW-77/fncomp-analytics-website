@@ -495,7 +495,7 @@ function ReplayStatusOverlay({ engine }: { engine: ReplayEngine }) {
 
 // The map image, with a way to load it again after a failure. use-image
 // reloads when its URL changes; a fragment changes the URL without changing
-// the request (the presigned S3 URL can't take another query parameter).
+// the request.
 function useMapImage(url: string) {
   const [attempt, setAttempt] = useState(0)
   const [image, status] = useImage(attempt ? `${url}#retry-${attempt}` : url)

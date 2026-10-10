@@ -105,9 +105,8 @@ export type ItemInfo = {
 // for every item id in it.
 export type InventoryPayload = MatchInventory & { itemInfo: Record<string, ItemInfo> }
 
-// Image URLs last longer than the map's: the map image loads once at the
-// start, but an icon may first be shown hours into a session (a panel opened
-// late), and the browser only fetches it then.
+// Icon URLs last long: an icon may first be shown hours into a session (a
+// panel opened late), and the browser only fetches it then.
 const IMAGE_URL_TTL_S = 12 * 3600
 
 // Presigns each distinct S3 key once. Signing is computed locally (no request
@@ -160,20 +159,26 @@ export async function getMapAssets(
 ): Promise<MapAssets | null> {
     const versionPath = `${buildMajor}.${String(buildMinor).padStart(2, '0')}`
     const definitionKey = `maps/versions/${versionPath}/${modeId}.json`
-    const imageKey = `maps/versions/${versionPath}/${modeId}.webp`
 
     try {
-        // Fetch definition JSON
-        const defCommand = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: definitionKey })
-        const defResponse = await s3Client.send(defCommand)
+        const defResponse = await s3Client.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: definitionKey }))
         if (!defResponse.Body) return null
         const definition = JSON.parse(await defResponse.Body.transformToString()) as ReplayMapDefinition
-
-        // Presigned URL for image (1 hour TTL — plenty for a replay session)
-        const imgCommand = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: imageKey })
-        const imageUrl = await getSignedUrl(s3Client, imgCommand, { expiresIn: 3600 })
-
+        // Served by /api/replay/map-image at a stable, cacheable URL.
+        const imageUrl = `/api/replay/map-image?${new URLSearchParams({ build: versionPath, mode: modeId })}`
         return { definition, imageUrl }
+    } catch (e) {
+        if (e instanceof NoSuchKey) return null
+        throw e
+    }
+}
+
+// A map image's bytes, streamed from S3; null when the version has none.
+export async function getMapImage(versionPath: string, modeId: string): Promise<ReadableStream | null> {
+    const key = `maps/versions/${versionPath}/${modeId}.webp`
+    try {
+        const response = await s3Client.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }))
+        return response.Body?.transformToWebStream() ?? null
     } catch (e) {
         if (e instanceof NoSuchKey) return null
         throw e
