@@ -26,7 +26,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { matchId } = await params
   const match = await findMatch(matchId)
   if (!match) return { title: "Match not found" }
-  return { title: [matchTitle(match), match.tournamentTitle].filter(Boolean).join(" · ") }
+  const title = [matchTitle(match), match.tournamentTitle].filter(Boolean).join(" · ")
+  const description =
+    `2D replay of ${[matchTitle(match), match.tournamentTitle, match.regionCode].filter(Boolean).join(", ")}: ` +
+    "every fight detected and graded, with each player's health, inventory and stats as the game played out."
+  return {
+    title,
+    description,
+    alternates: { canonical: `/matches/${matchId}` },
+    openGraph: { title, description, url: `/matches/${matchId}` },
+  }
 }
 
 export default async function MatchPage({ params }: PageProps) {

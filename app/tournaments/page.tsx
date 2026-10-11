@@ -1,3 +1,5 @@
+import type { Metadata } from "next"
+
 import { getTournamentImagePath } from "@/lib/event-images"
 import { prisma } from "@/lib/prisma"
 import {
@@ -13,6 +15,14 @@ import { TournamentGrid } from "./tournament-grid"
 // Statically generate the list and regenerate at most once an hour (ISR). The
 // set of tournaments only changes on ingestion, not per request.
 export const revalidate = 3600
+
+export const metadata: Metadata = {
+  title: "FNCS Tournaments",
+  description:
+    "Every FNCS event on FNAnalytics: Division Cups, Performance Evaluations, Majors and the Global " +
+    "Championship, each with its leaderboard, filterable player stats and a 2D replay of every game.",
+  alternates: { canonical: "/tournaments" },
+}
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",

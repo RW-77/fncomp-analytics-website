@@ -1,6 +1,8 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { prisma } from "@/lib/prisma"
+import { tournamentTabMetadata } from "@/lib/seo"
 import {
   CUMULATIVE_DAY,
   DaySelection,
@@ -127,6 +129,11 @@ async function buildLeaderboardData(
   }
 
   return { matchCount, teams: [...teams.values()] }
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ tournamentId: string }> }): Promise<Metadata> {
+  const { tournamentId } = await params
+  return tournamentTabMetadata(tournamentId, "leaderboard")
 }
 
 export default async function LeaderboardPage({ params, searchParams }: PageProps) {
