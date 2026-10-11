@@ -30,14 +30,14 @@ function ordinal(n: number): string {
 export function TeamDetailPanel({ team }: { team: TeamDetail | null }) {
   if (!team) {
     return (
-      <aside className="rounded-md bg-[#141d30] p-4">
+      <aside className="rounded-md bg-[var(--panel)] p-4">
         <div className="text-sm text-slate-500">Select a team to see details.</div>
       </aside>
     )
   }
 
   return (
-    <aside className="rounded-md bg-[#141d30] p-5 lg:h-full lg:min-h-0 lg:overflow-y-auto">
+    <aside className="rounded-md bg-[var(--panel)] p-5 lg:h-full lg:min-h-0 lg:overflow-y-auto">
       <div className="flex items-center gap-3.5">
         <div
           className="flex-shrink-0 rounded-[10px] bg-[rgba(227,201,126,0.1)] px-4 py-1.5 text-center"

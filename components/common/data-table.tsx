@@ -158,7 +158,7 @@ export function DataTable<TData, TValue>({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md bg-[#141d30]",
+        "overflow-hidden rounded-md bg-[var(--panel)]",
         fillHeight && "lg:flex lg:h-full lg:min-h-0 lg:flex-col"
       )}
     >
@@ -183,7 +183,7 @@ export function DataTable<TData, TValue>({
             placeholder={searchPlaceholder}
             value={(table.getColumn(searchColumnId)?.getFilterValue() as string) ?? ""}
             onChange={(event) => table.getColumn(searchColumnId)?.setFilterValue(event.target.value)}
-            className="h-9 max-w-md border-white/[0.08] bg-[#1c2942] text-slate-100 placeholder:text-slate-500 shadow-none focus-visible:border-sky-400/30 focus-visible:ring-sky-400/15"
+            className="h-9 max-w-md border-white/[0.08] bg-[var(--panel-raised)] text-slate-100 placeholder:text-slate-500 shadow-none focus-visible:border-sky-400/30 focus-visible:ring-sky-400/15"
           />
         </div>
 
@@ -227,7 +227,7 @@ export function DataTable<TData, TValue>({
                   <TableHead
                     key={header.id}
                     style={meta?.flex ? undefined : { width: header.getSize() }}
-                    className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#1c2942]/95 px-2 py-1 align-middle backdrop-blur supports-[backdrop-filter]:bg-[#1c2942]/85 first:pl-4 last:pr-4"
+                    className="sticky top-0 z-10 border-b border-white/[0.06] bg-[var(--panel-raised)]/95 px-2 py-1 align-middle backdrop-blur supports-[backdrop-filter]:bg-[var(--panel-raised)]/85 first:pl-4 last:pr-4"
                   >
                     {description ? (
                       <HoverCard>

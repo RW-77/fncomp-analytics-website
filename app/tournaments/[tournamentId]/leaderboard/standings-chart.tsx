@@ -111,7 +111,7 @@ export function StandingsChart({ games }: { games: StandingGame[] }) {
               cx={x(i)}
               cy={y(g.standing)}
               r={r}
-              fill={g.win ? "var(--accent-gold)" : "#141d30"}
+              fill={g.win ? "var(--accent-gold)" : "var(--panel)"}
               stroke="var(--accent-gold)"
               strokeWidth="2"
               className="cursor-pointer"

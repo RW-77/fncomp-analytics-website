@@ -29,7 +29,7 @@ const KIND_LABEL: Record<InteractionKind, string> = { shot_attempt: 'Miss', hit:
 // fight get these, in table order.
 const PERSPECTIVE_COLOR = '#e3c97e'
 const PERSPECTIVE_TEXT = 'text-[#e3c97e]'
-const TEAM_COLORS = ['#7dd3fc', '#c4b5fd', '#f9a8d4', '#cbd5e1']
+export const FIGHT_TEAM_COLORS = ['#7dd3fc', '#c4b5fd', '#f9a8d4', '#cbd5e1']
 
 // Shared column layouts, so each table's header row lines up with its rows.
 const TEAMS_COLS = 'grid grid-cols-[3rem_repeat(3,minmax(0,1fr))]'
@@ -101,6 +101,7 @@ export function EngagementDetails({
   onInspect,
   onClose,
   onBack,
+  summary = false,
 }: {
   engagement: Engagement
   number: number                               // same number as the list row and the map circle
@@ -109,9 +110,10 @@ export function EngagementDetails({
   teamRosters: Record<number, string[]>        // team id -> its players' names
   playerNames: Record<string, string>          // player id -> username
   playerSkins: Record<string, PlayerSkin>      // player id -> outfit
-  onInspect: (record: InteractionRecord) => void
-  onClose: () => void
+  onInspect?: (record: InteractionRecord) => void   // the feed's rows; not used in a summary
+  onClose?: () => void                         // omit for no close button
   onBack?: () => void                          // set when a team is being viewed
+  summary?: boolean                            // just the header, verdict and teams (no players or feed)
 }) {
   const type = EVENT_TYPES.find((t) => t.id === engagementType(engagement))
   const teamCount = engagement.teams.length
@@ -128,13 +130,13 @@ export function EngagementDetails({
   const teamColors: Record<number, string> = {}
   outcomes
     .filter((o) => o.team_id !== perspectiveTeamId)
-    .forEach((o, i) => (teamColors[o.team_id] = TEAM_COLORS[i % TEAM_COLORS.length]))
+    .forEach((o, i) => (teamColors[o.team_id] = FIGHT_TEAM_COLORS[i % FIGHT_TEAM_COLORS.length]))
   if (perspectiveTeamId !== null) teamColors[perspectiveTeamId] = PERSPECTIVE_COLOR
 
   const verdict = headerVerdict(outcomes, perspectiveTeamId)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn('flex flex-col', summary ? 'gap-5' : 'gap-6')}>
       <DetailsHeader
         title={type?.title ?? 'Fight'}
         meta={
@@ -153,23 +155,28 @@ export function EngagementDetails({
         teamColors={teamColors}
         perspectiveTeamId={perspectiveTeamId}
         roster={(id) => teamRosters[id] ?? [teamName(id)]}
+        oneLine={summary}
       />
 
-      <PlayersTable
-        outcomes={outcomes}
-        players={engagement.players}
-        teamColors={teamColors}
-        playerName={playerName}
-      />
+      {!summary && (
+        <>
+          <PlayersTable
+            outcomes={outcomes}
+            players={engagement.players}
+            teamColors={teamColors}
+            playerName={playerName}
+          />
 
-      {/* key: a new fight gets a fresh feed (resets its scroll and highlight) */}
-      <EventFeed
-        key={engagement.id}
-        records={engagement.records}
-        playerName={playerName}
-        playerSkins={playerSkins}
-        onInspect={onInspect}
-      />
+          {/* key: a new fight gets a fresh feed (resets its scroll and highlight) */}
+          <EventFeed
+            key={engagement.id}
+            records={engagement.records}
+            playerName={playerName}
+            playerSkins={playerSkins}
+            onInspect={(r) => onInspect?.(r)}
+          />
+        </>
+      )}
     </div>
   )
 }
@@ -204,11 +211,13 @@ function TeamsTable({
   teamColors,
   perspectiveTeamId,
   roster,
+  oneLine = false,
 }: {
   outcomes: TeamOutcome[]
   teamColors: Record<number, string>
   perspectiveTeamId: number | null
   roster: (id: number) => string[]
+  oneLine?: boolean   // each team's names on one line, cut short if they don't fit
 }) {
   return (
     <section>
@@ -227,8 +236,10 @@ function TeamsTable({
             <span
               className={cn(
                 'min-w-0 flex-1 text-sm font-medium leading-snug',
+                oneLine && 'truncate',
                 o.team_id === perspectiveTeamId && PERSPECTIVE_TEXT,
               )}
+              title={oneLine ? roster(o.team_id).join(' + ') : undefined}
             >
               {roster(o.team_id).map((name, i) => (
                 <span key={name}>
@@ -333,7 +344,9 @@ function EventFeed({
       <h3 className="mb-2 text-[15px] font-semibold text-white">
         Event feed <span className="text-sm font-normal text-slate-500">· {records.length} actions</span>
       </h3>
-      <ol className="max-h-80 overflow-y-auto border border-white/[0.06]">
+      {/* A size container: the skins below only show once the feed is wide enough
+          (20rem) to fit them beside the names. */}
+      <ol className="@container max-h-80 overflow-y-auto border border-white/[0.06]">
         {records.map((r, i) => {
           const decisive = r.kind === 'knock' || r.kind === 'elim'
           return (
@@ -366,12 +379,18 @@ function EventFeed({
                 >
                   {KIND_LABEL[r.kind]}
                 </span>
-                {/* Each side gets its skin; the names truncate, the icons and arrow don't. */}
+                {/* Each side gets its skin on a wide enough feed (display: contents
+                    puts the icon straight in the flex row); the names truncate, the
+                    icons and arrow don't. */}
                 <span className={cn('flex min-w-0 items-center gap-1', decisive && 'font-medium')}>
-                  <SkinIcon skin={playerSkins[r.actor_id]} size={24} />
+                  <span className="hidden @xs:contents">
+                    <SkinIcon skin={playerSkins[r.actor_id]} size={24} />
+                  </span>
                   <span className="min-w-0 truncate">{playerName(r.actor_id)}</span>
                   <span className="shrink-0 text-slate-500">→</span>
-                  <SkinIcon skin={playerSkins[r.recipient_id]} size={24} />
+                  <span className="hidden @xs:contents">
+                    <SkinIcon skin={playerSkins[r.recipient_id]} size={24} />
+                  </span>
                   <span className="min-w-0 truncate">{playerName(r.recipient_id)}</span>
                 </span>
                 <span className="text-right text-slate-400">

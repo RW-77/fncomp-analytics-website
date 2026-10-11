@@ -46,60 +46,46 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/*
+ * The site's theme: dark gray. Surfaces and text are neutral grays; sky blue
+ * (primary, ring) and light gold are the only hues. html always has .dark
+ * (there's no light mode), so these are the values in effect everywhere.
+ */
 :root {
   /* Site accent — light gold. */
   --accent-gold: #e3c97e;
   --accent-gold-strong: #ecd699;
   --accent-gold-fg: #20180a;
   --radius: 0.625rem;
-  --background: oklch(0.16 0.018 258);
-  --foreground: oklch(0.96 0.01 255);
-  --card: oklch(0.2 0.018 258);
-  --card-foreground: oklch(0.96 0.01 255);
-  --popover: oklch(0.19 0.018 258);
-  --popover-foreground: oklch(0.96 0.01 255);
-  --primary: oklch(0.77 0.11 228);
-  --primary-foreground: oklch(0.17 0.02 258);
-  --secondary: oklch(0.24 0.015 258);
-  --secondary-foreground: oklch(0.96 0.01 255);
-  --muted: oklch(0.23 0.014 258);
-  --muted-foreground: oklch(0.72 0.015 255);
-  --accent: oklch(0.24 0.018 250);
-  --accent-foreground: oklch(0.97 0.01 255);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.31 0.018 258);
-  --input: oklch(0.27 0.014 258);
-  --ring: oklch(0.71 0.08 228);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.18 0.018 258);
-  --sidebar-foreground: oklch(0.96 0.01 255);
-  --sidebar-primary: oklch(0.77 0.11 228);
-  --sidebar-primary-foreground: oklch(0.17 0.02 258);
-  --sidebar-accent: oklch(0.24 0.018 250);
-  --sidebar-accent-foreground: oklch(0.97 0.01 255);
-  --sidebar-border: oklch(0.31 0.018 258);
-  --sidebar-ring: oklch(0.71 0.08 228);
-}
 
-.dark {
-  --background: oklch(0.16 0.018 258);
-  --foreground: oklch(0.96 0.01 255);
-  --card: oklch(0.2 0.018 258);
-  --card-foreground: oklch(0.96 0.01 255);
-  --popover: oklch(0.19 0.018 258);
-  --popover-foreground: oklch(0.96 0.01 255);
+  /* Surfaces, darkest first: the page, panels and cards, and the shades
+     used inside them. */
+  --app-bg: #111112;
+  --panel: #18181a;
+  --panel-raised: #212124;    /* table headers, fields, the Viewing-as band */
+  --panel-selected: #29292c;  /* hovered and selected rows */
+  --panel-inset: #0f0f10;     /* fields sunk into a panel */
+  --panel-line: #2e2e32;      /* rules and the timeline rail */
+  --panel-control: #44444a;   /* outlined button borders */
+
+  /* Page frame: full width and left-aligned, with this margin on each side
+     (16px on phones up to 40px on wide screens). See the page-x utility. */
+  --page-gutter: clamp(1rem, 2.5vw, 2.5rem);
+
+  --background: var(--app-bg);
+  --foreground: oklch(0.96 0 0);
+  --card: var(--panel);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.23 0 0);
+  --popover-foreground: oklch(0.96 0 0);
   --primary: oklch(0.77 0.11 228);
-  --primary-foreground: oklch(0.17 0.02 258);
-  --secondary: oklch(0.24 0.015 258);
-  --secondary-foreground: oklch(0.96 0.01 255);
-  --muted: oklch(0.23 0.014 258);
-  --muted-foreground: oklch(0.72 0.015 255);
-  --accent: oklch(0.24 0.018 250);
-  --accent-foreground: oklch(0.97 0.01 255);
+  --primary-foreground: oklch(0.17 0 0);
+  --secondary: var(--panel-raised);
+  --secondary-foreground: oklch(0.96 0 0);
+  --muted: var(--panel-raised);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.29 0 0);
+  --accent-foreground: oklch(0.97 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 9%);
@@ -109,56 +95,17 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.18 0.018 258);
-  --sidebar-foreground: oklch(0.96 0.01 255);
+  --sidebar: var(--panel);
+  --sidebar-foreground: oklch(0.96 0 0);
   --sidebar-primary: oklch(0.77 0.11 228);
-  --sidebar-primary-foreground: oklch(0.17 0.02 258);
-  --sidebar-accent: oklch(0.24 0.018 250);
-  --sidebar-accent-foreground: oklch(0.97 0.01 255);
+  --sidebar-primary-foreground: oklch(0.17 0 0);
+  --sidebar-accent: oklch(0.29 0 0);
+  --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.71 0.08 228);
-}
 
-/*
- * Surfaces of the replay UI: the page behind the panels, the panels, and the
- * shades used inside them. These navy defaults suit the tournament pages
- * (the matches tab's cards); the match page swaps them for dark gray below.
- */
-:root {
-  --app-bg: #0e1523;
-  --panel: #141d30;
-  --panel-raised: #1b2640;    /* the Viewing-as band */
-  --panel-selected: #1f2b48;  /* the selected list row */
-  --panel-inset: #0f1726;     /* fields sunk into a panel */
-  --panel-line: #263250;      /* rules and the timeline rail */
-  --panel-control: #34446b;   /* outlined button borders */
-}
-
-/*
- * Dark gray: the match page's theme. The page marks its root with
- * data-theme="dark-gray", and :has() restyles the whole document from there
- * (the nav, the page background, and popovers portaled outside the page)
- * straight from the server-rendered markup, so the default never flashes.
- * Unlayered, so it beats Tailwind's theme variables.
- */
-:root:has([data-theme='dark-gray']) {
-  --app-bg: #111112;
-  --panel: #18181a;
-  --panel-raised: #212124;
-  --panel-selected: #29292c;
-  --panel-inset: #0f0f10;
-  --panel-line: #2e2e32;
-  --panel-control: #44444a;
-
-  --background: var(--app-bg);
-  --card: var(--panel);
-  --popover: oklch(0.23 0 0);
-  --secondary: var(--panel-raised);
-  --muted: var(--panel-raised);
-  --muted-foreground: oklch(0.72 0 0);
-  --accent: oklch(0.29 0 0);
-
-  /* Neutral grays in place of the site's blue-tinted slate. */
+  /* Neutral grays in place of Tailwind's blue-tinted slate, which the
+     site's text uses throughout. Unlayered, so it beats Tailwind's theme. */
   --color-slate-100: oklch(97% 0 0);
   --color-slate-200: oklch(92.2% 0 0);
   --color-slate-300: oklch(87% 0 0);
@@ -169,12 +116,33 @@
   --color-slate-800: oklch(26.9% 0 0);
   --color-slate-900: oklch(20.5% 0 0);
 }
-:root:has([data-theme='dark-gray']) body {
-  background: var(--app-bg);
+
+/* The page frame's side margins (--page-gutter). */
+@utility page-x {
+  padding-inline: var(--page-gutter);
 }
-/* The site nav, see-through over the page like its default. */
-:root:has([data-theme='dark-gray']) body > nav {
-  background-color: color-mix(in srgb, var(--app-bg) 85%, transparent);
+
+/* A narrower, centered frame for the homepage's sections under the hero:
+   80% of the window on wide screens (90% on laptops), the page frame below. */
+@utility section-x {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--page-gutter);
+  @media (width >= 64rem) {
+    width: 90%;
+    padding-inline: 0;
+  }
+  @media (width >= 80rem) {
+    width: 80%;
+  }
+}
+
+/* A text caret's blink (the homepage typewriter). */
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+@utility animate-caret-blink {
+  animation: caret-blink 1s steps(1) infinite;
 }
 
 /* Gold gradient text with a soft glow — used for the hero title accent word. */
@@ -211,6 +179,13 @@
   --fd-banner-height: var(--site-nav-height);
 
   /*
+   * Fumadocs centers its grid within --fd-layout-width (97rem by default), so
+   * on wide screens the sidebar floats in from the edge. The full window keeps
+   * the sidebar on the left edge and the table of contents on the right.
+   */
+  --fd-layout-width: 100vw;
+
+  /*
    * Leave --fd-docs-height at its 100dvh default: Fumadocs sizes sticky children
    * as calc(--fd-docs-height - --fd-docs-row-N), so it already subtracts the
    * banner offset. Subtracting it here too made the sidebar short by one nav.
@@ -228,10 +203,5 @@
   }
   body {
     @apply min-h-screen bg-background text-foreground;
-    background-image:
-      radial-gradient(circle at top, rgba(56, 189, 248, 0.16), transparent 28rem),
-      radial-gradient(circle at 85% 18%, rgba(14, 165, 233, 0.12), transparent 22rem),
-      linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 1));
-    background-attachment: fixed;
   }
 }

@@ -60,11 +60,20 @@ async function buildLeaderboardData(
     }),
     prisma.event_window_players.findMany({
       where: { event_window_id: { in: eventWindowIds } },
-      select: { epic_id: true, flag_token: true },
+      select: { epic_id: true, epic_username: true, flag_token: true },
     }),
   ])
 
   const nameByEpicId = new Map(players.map((p) => [p.epic_id, p.epic_username]))
+  // Leaderboard names land minutes before a match is processed into
+  // match_players (live events), so fall back to them before the raw id —
+  // minus the event tag the leaderboard prefixes (e.g. "[FNCSGC26] XSET CURVE"),
+  // which match_players names don't carry.
+  for (const fp of flagPlayers) {
+    if (fp.epic_username && !nameByEpicId.has(fp.epic_id)) {
+      nameByEpicId.set(fp.epic_id, fp.epic_username.replace(/^\[[^\]]*\]\s*/, ""))
+    }
+  }
   // A player's flag is ~constant, so keep any non-null token across the windows.
   const flagByEpicId = new Map<string, string | null>()
   for (const fp of flagPlayers) {
