@@ -149,6 +149,7 @@ model matches {
   match_players              match_players[]
   match_player_cosmetics     match_player_cosmetics[]
   knock_events               knock_events[]
+  match_event_counts         match_event_counts[]
   match_stat_status          match_stat_status[]
   match_weapons              match_weapons[]
   event_windows              event_windows                @relation(fields: [event_window_id], references: [event_window_id], onDelete: NoAction, onUpdate: NoAction)
@@ -342,6 +343,15 @@ model match_stat_status {
 
   @@id([match_id, stat_name])
   @@index([stat_name], map: "idx_mss_stat")
+}
+
+model match_event_counts {
+  match_id String  @db.VarChar(50)
+  log_type String  @db.VarChar(50)
+  count    Int
+  matches  matches @relation(fields: [match_id], references: [match_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([match_id, log_type])
 }
 
 model reboot_events {

@@ -20,7 +20,7 @@ export function DetailsHeader({
   meta?: string
   icon?: React.ReactNode
   action?: React.ReactNode
-  onClose: () => void
+  onClose?: () => void          // omit for no close button
   back?: { label: string; onClick: () => void }
   children?: React.ReactNode
 }) {
@@ -44,14 +44,16 @@ export function DetailsHeader({
         </div>
         {children}
       </div>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close details"
-        className="shrink-0 rounded-sm p-1 text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
-      >
-        <X className="size-5" />
-      </button>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close details"
+          className="shrink-0 rounded-sm p-1 text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
+        >
+          <X className="size-5" />
+        </button>
+      )}
     </header>
   )
 }

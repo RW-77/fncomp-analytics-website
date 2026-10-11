@@ -18,27 +18,18 @@ export function Navigation() {
   // A match page runs edge to edge, so the nav does too: no max width, and the
   // same 16px inset as the left panel's content, so the logo lines up with it.
   const fullBleed = pathname.startsWith("/matches/")
-  // Match the wider tournament workspace so the nav aligns with the page below it.
-  const wide = pathname.startsWith("/tournaments/")
-  // On docs pages, mirror fumadocs' centered layout so the logo tracks the
-  // sidebar header ("FNAnalytics Docs") at every width. Fumadocs centers its
-  // grid (sidebar 268 + content 1016 + toc 268 = 1552px) and right-aligns the
-  // sidebar content against the left gutter; matching max-w + px-4 puts our
-  // logo on that same gutter+16px line.
+  // Docs pages run edge to edge too (see --fd-layout-width in globals.css),
+  // with the sidebar on the left edge; px-4 lines the logo up with its header.
   const docs = pathname.startsWith("/docs")
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#08111f]/88 backdrop-blur-xl supports-[backdrop-filter]:bg-[#08111f]/72">
+    <nav className="sticky top-0 z-50 border-b border-white/8 bg-[color-mix(in_srgb,var(--app-bg)_92%,transparent)] backdrop-blur-xl supports-[backdrop-filter]:bg-[color-mix(in_srgb,var(--app-bg)_80%,transparent)]">
       <div
         className={cn(
           "flex h-14 items-center gap-[1.6rem] sm:gap-[2.8rem]",
-          fullBleed
-            ? "px-4"
-            : docs
-            ? "mx-auto max-w-[1552px] px-4"
-            : wide
-              ? "mx-auto max-w-[1800px] px-4 md:px-14"
-              : "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
+          // Everywhere else, the shared page frame, so the logo lines up
+          // with the page's content.
+          fullBleed || docs ? "px-4" : "page-x"
         )}
       >
         <Link href="/" className="flex min-w-0 items-center gap-0.5">

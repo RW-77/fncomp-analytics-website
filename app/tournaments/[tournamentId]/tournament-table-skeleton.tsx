@@ -20,7 +20,7 @@ export function TournamentTableSkeleton() {
       </div>
 
       {/* Table surface */}
-      <div className="overflow-hidden rounded-xl bg-[#141d30]">
+      <div className="overflow-hidden rounded-xl bg-[var(--panel)]">
         {/* Table controls */}
         <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-4">
           <Skeleton className="h-8 w-full max-w-md" />

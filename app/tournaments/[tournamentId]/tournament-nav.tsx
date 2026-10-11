@@ -47,7 +47,7 @@ export function TournamentTabNav({
   const currentSegment = pathname.split("/").at(-1)
 
   return (
-    <nav className="mb-4 inline-flex items-center gap-1.5 rounded-xl bg-[#141d30] p-1.5">
+    <nav className="mb-4 inline-flex items-center gap-1.5 rounded-xl bg-[var(--panel)] p-1.5">
       {tabs.map(({ label, segment }) => {
         const isActive = currentSegment === segment
         return (

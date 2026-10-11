@@ -41,3 +41,15 @@ yarn-error.log*
 next-env.d.ts
 
 /generated/prisma
+
+# fumadocs (generated)
+/.source
+
+# local tooling and notes
+/.venv
+/.agents
+/.claude
+/.cursor
+/.mcp.json
+skills-lock.json
+HANDOFF.md

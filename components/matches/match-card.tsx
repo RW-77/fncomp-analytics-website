@@ -7,7 +7,7 @@ import { formatClock } from "@/lib/replay/format"
 import { LocalTime } from "@/components/local-time"
 import { MatchMapThumb } from "@/components/matches/match-map-thumb"
 
-const badge = "rounded-[2px] bg-[#0a0f1a]/85 px-2 py-1"
+const badge = "rounded-[2px] bg-[color-mix(in_srgb,var(--app-bg)_85%,transparent)] px-2 py-1"
 
 // One game in the matches grid: where it ended, who won, and how it went.
 // The whole card opens the match page.

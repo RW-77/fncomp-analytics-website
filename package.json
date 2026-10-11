@@ -54,6 +54,9 @@
     "use-image": "^1.1.4"
   },
   "devDependencies": {
+    "@remotion/cli": "4.0.534",
+    "@remotion/google-fonts": "4.0.534",
+    "@remotion/tailwind-v4": "4.0.534",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20",
     "@types/pg": "^8.15.6",
@@ -63,6 +66,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "prisma": "^7.8.0",
+    "remotion": "4.0.534",
     "shadcn": "^4.9.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",

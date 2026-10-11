@@ -103,8 +103,16 @@ scroll to zoom, and use the timeline to step between individual shots.
 For the full-screen version with extra controls — gridlines, labels, occluded
 players, and adjustable range — open the [interactive lab](/labs/accuracy).
 
-{/* 
 # Implementation
+
+We know the ending point of each shot $\mathbf{H}$ and the position of the 
+shooter at the time the shot was fired, $\mathbf{A}$.
+
+- $\mathbf{A}$ - shooter position at fire time
+- $\mathbf{H}$ - the shot's impact point (where it terminated - hit a player, a
+  build, terrain, or nothing)
+- $L = \left| \mathbf{H} - \mathbf{A} \right|$ - bullet travel distance
+- $$
 
 Every shot in Fortnite has a point of origin $\mathbf{A}$ and a direction 
 $\mathbf{b}$, both of which exist in three-dimensional space.
@@ -124,4 +132,4 @@ sphere of radius $r$ centered at the point $(C_x, C_y, C_z)$,
 (C_x - x)^2 + (C_y - y)^2 + (C_z - z)^2 = r^2
 ```
 is a straightforward calculation and constant-time operation.
-*/}
+

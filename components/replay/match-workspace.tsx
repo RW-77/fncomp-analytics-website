@@ -43,6 +43,10 @@ export type MatchHeaderInfo = {
 // camera would keep zooming out as its teams spread across the map.
 const FIGHT_FOLLOW_TAIL_S = 3
 
+// Selecting a fight starts the replay this long before the fight does, so the
+// opening shots aren't missed.
+const FIGHT_LEAD_IN_S = 1
+
 // Until the engagements load (or when the match has none). One shared array
 // so the memos that depend on it don't recompute.
 const NO_ENGAGEMENTS: Engagement[] = []
@@ -148,14 +152,14 @@ function ReplayWorkspace({ matchId, header, replay }: { matchId: string; header:
     followTeam(selectedTeamId)
   }
 
-  // A map circle or list row: open the fight, jump to its start, and follow its
+  // A map circle or list row: open the fight, jump to just before its start, and follow its
   // players until shortly after it ends (the engine ends that follow itself and
   // reports it through onFollowChange). Selecting it again resumes following.
   const selectEngagement = (id: number) => {
     const e = allEngagements.find((x) => x.id === id)
     if (!e) return
     setDetails({ kind: 'engagement', id })
-    engine.seek(e.start_s)
+    engine.seek(Math.max(0, e.start_s - FIGHT_LEAD_IN_S))
     follow(
       e.participants.map((p) => p.player_id),
       { kind: 'fight', id },

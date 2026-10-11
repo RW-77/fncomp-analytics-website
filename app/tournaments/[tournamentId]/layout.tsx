@@ -82,40 +82,34 @@ export default async function TournamentLayout({ params, children }: LayoutProps
   )
 
   return (
-    <>
-      {/* Scoped solid-navy backdrop — overrides the global body gradient for
-          tournament pages only, without editing globals.css. */}
-      <div className="fixed inset-0 -z-10 bg-[#0a0f1a]" aria-hidden />
+    <div className="page-x py-6">
+      {/* Header — integrated into the page, no card */}
+      <header className="mb-6">
+        <Link
+          href="/tournaments"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200"
+        >
+          <ArrowLeft className="size-3.5" />
+          Tournaments
+        </Link>
 
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-6 md:px-14">
-        {/* Header — integrated into the page, no card */}
-        <header className="mb-6">
-          <Link
-            href="/tournaments"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition-colors hover:text-slate-200"
-          >
-            <ArrowLeft className="size-3.5" />
-            Tournaments
-          </Link>
+        <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-5xl [font-family:var(--font-onest)]">
+          {tournamentTitle}
+        </h1>
 
-          <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white sm:text-5xl [font-family:var(--font-onest)]">
-            {tournamentTitle}
-          </h1>
+        <TournamentMeta eventWindows={serializedEventWindows} />
 
-          <TournamentMeta eventWindows={serializedEventWindows} />
+        <RegionDayToggles
+          availableRegions={availableRegions}
+          regionToDays={regionToDays}
+          allDays={allDays}
+        />
+      </header>
 
-          <RegionDayToggles
-            availableRegions={availableRegions}
-            regionToDays={regionToDays}
-            allDays={allDays}
-          />
-        </header>
+      {/* Primary view switcher */}
+      <TournamentTabNav tournamentId={tournamentId} hasLeaderboard={hasLeaderboard} />
 
-        {/* Primary view switcher */}
-        <TournamentTabNav tournamentId={tournamentId} hasLeaderboard={hasLeaderboard} />
-
-        {children}
-      </div>
-    </>
+      {children}
+    </div>
   )
 }

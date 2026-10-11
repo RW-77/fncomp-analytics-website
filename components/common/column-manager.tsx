@@ -40,7 +40,7 @@ function labelOf<TData>(column: Column<TData, unknown>): string {
 }
 
 const ctlBtn =
-  "h-8 border-white/[0.08] bg-[#1c2942] text-xs text-slate-200 shadow-none hover:bg-[#26354f] dark:bg-[#1c2942] dark:hover:bg-[#26354f]"
+  "h-8 border-white/[0.08] bg-[var(--panel-raised)] text-xs text-slate-200 shadow-none hover:bg-[var(--panel-selected)] dark:bg-[var(--panel-raised)] dark:hover:bg-[var(--panel-selected)]"
 
 export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
   const [mode, setMode] = React.useState<"toggle" | "reorder">("toggle")
@@ -63,7 +63,7 @@ export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
 
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 border-l border-white/[0.06] bg-[#141d30] p-0 text-slate-100 sm:max-w-[420px]"
+        className="flex w-full flex-col gap-0 border-l border-white/[0.06] bg-[var(--panel)] p-0 text-slate-100 sm:max-w-[420px]"
       >
         <SheetHeader className="gap-1 px-5 pt-5 pb-3">
           <SheetTitle className="text-lg font-semibold text-white">Columns</SheetTitle>
@@ -99,7 +99,7 @@ export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
                 "ml-auto h-8 text-xs shadow-none",
                 mode === "reorder"
                   ? "border-0 bg-[var(--accent-gold)] font-semibold text-[var(--accent-gold-fg)] hover:bg-[var(--accent-gold-strong)] dark:bg-[var(--accent-gold)] dark:hover:bg-[var(--accent-gold-strong)]"
-                  : "border-[var(--accent-gold)]/30 bg-[#1c2942] text-[var(--accent-gold)] hover:bg-[#26354f] dark:bg-[#1c2942] dark:hover:bg-[#26354f]"
+                  : "border-[var(--accent-gold)]/30 bg-[var(--panel-raised)] text-[var(--accent-gold)] hover:bg-[var(--panel-selected)] dark:bg-[var(--panel-raised)] dark:hover:bg-[var(--panel-selected)]"
               )}
             >
               Reorder
@@ -112,7 +112,7 @@ export function ColumnManager<TData>({ table }: { table: Table<TData> }) {
               placeholder="Search columns…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-9 border-white/[0.08] bg-[#0b1220] pl-9 text-slate-100 placeholder:text-slate-500 shadow-none focus-visible:border-sky-400/30 focus-visible:ring-sky-400/15 dark:bg-[#0b1220]"
+              className="h-9 border-white/[0.08] bg-[var(--panel-inset)] pl-9 text-slate-100 placeholder:text-slate-500 shadow-none focus-visible:border-sky-400/30 focus-visible:ring-sky-400/15 dark:bg-[var(--panel-inset)]"
             />
           </div>
         </div>
@@ -197,7 +197,7 @@ function ColumnToggleRow<TData>({ column }: { column: Column<TData, unknown> }) 
   const id = `col-toggle-${column.id}`
 
   return (
-    <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[#1c2942]">
+    <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--panel-raised)]">
       <Checkbox
         id={id}
         checked={column.getIsVisible()}
@@ -293,7 +293,7 @@ function SortableRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex items-center gap-2.5 rounded-lg bg-[#1c2942] px-3 py-2.5",
+        "flex items-center gap-2.5 rounded-lg bg-[var(--panel-raised)] px-3 py-2.5",
         isDragging && "relative z-10 shadow-lg ring-1 ring-sky-400/30"
       )}
     >
