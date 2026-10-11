@@ -1,6 +1,8 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { prisma } from "@/lib/prisma"
+import { tournamentTabMetadata } from "@/lib/seo"
 import {
   CUMULATIVE_DAY,
   DaySelection,
@@ -29,6 +31,11 @@ function buildUrl(
   return query
     ? `/tournaments/${tournamentId}/matches?${query}`
     : `/tournaments/${tournamentId}/matches`
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ tournamentId: string }> }): Promise<Metadata> {
+  const { tournamentId } = await params
+  return tournamentTabMetadata(tournamentId, "matches")
 }
 
 export default async function MatchesPage({ params, searchParams }: PageProps) {
