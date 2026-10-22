@@ -42,7 +42,7 @@ async function buildLeaderboardData(
 ): Promise<LeaderboardData> {
   if (eventWindowIds.length === 0) return { matchCount: 0, teams: [] }
 
-  const [players, matchRows, flagPlayers] = await Promise.all([
+  const [players, matchRows, flagPlayers, replayMatches] = await Promise.all([
     prisma.match_players.findMany({
       where: { matches: { event_window_id: { in: eventWindowIds } } },
       select: { epic_id: true, epic_username: true },
@@ -64,7 +64,14 @@ async function buildLeaderboardData(
       where: { event_window_id: { in: eventWindowIds } },
       select: { epic_id: true, epic_username: true, flag_token: true },
     }),
+    prisma.matches.findMany({
+      where: { event_window_id: { in: eventWindowIds } },
+      select: { match_id: true, session_id: true },
+    }),
   ])
+
+  // Sessions with a processed replay link to their match page.
+  const matchIdBySession = new Map(replayMatches.map((m) => [m.session_id, m.match_id]))
 
   const nameByEpicId = new Map(players.map((p) => [p.epic_id, p.epic_username]))
   // Leaderboard names land minutes before a match is processed into
@@ -125,6 +132,7 @@ async function buildLeaderboardData(
       win: row.victory_royale ? 1 : 0,
       kills: row.team_elims,
       placement: row.placement,
+      matchId: matchIdBySession.get(row.session_id) ?? null,
     }
   }
 

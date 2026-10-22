@@ -15,6 +15,7 @@ type PerMatch = {
   win: number
   kills: number
   placement: number | null
+  matchId: string | null
 } | null
 
 export type LeaderboardData = {
@@ -100,6 +101,7 @@ export function LeaderboardClient({ data }: { data: LeaderboardData }) {
         kills: m?.kills ?? null,
         win: m?.win === 1,
         played: m != null,
+        matchId: m?.matchId ?? null,
       }
     })
 
