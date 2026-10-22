@@ -36,7 +36,9 @@ function formatDateRange(startTime: Date | null, endTime: Date | null) {
   }
 
   if (startTime && endTime) {
-    return `${dateFormatter.format(startTime)} - ${dateFormatter.format(endTime)}`
+    // Collapses shared parts ("Sep 26 – 27, 2026"; one date for a one-day event)
+    // so the range fits a card on one line.
+    return dateFormatter.formatRange(startTime, endTime)
   }
 
   return dateFormatter.format(startTime ?? endTime ?? new Date())
@@ -164,7 +166,9 @@ export default async function TournamentsPage() {
   const tournamentCards = await getTournamentCards()
 
   return (
-    <div className="page-x py-8">
+    // Stops growing once the grid reaches six columns (2400px, see
+    // TournamentGrid), so zooming out further shrinks the cards.
+    <div className="page-x mx-auto max-w-[150rem] py-8">
       <h1 className="mb-5 text-4xl font-extrabold tracking-tight text-white sm:text-5xl [font-family:var(--font-onest)]">
         Tournaments
       </h1>
