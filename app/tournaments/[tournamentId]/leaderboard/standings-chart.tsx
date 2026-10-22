@@ -13,6 +13,7 @@ export type StandingGame = {
   kills: number | null
   win: boolean
   played: boolean
+  matchId: string | null
 }
 
 // Fixed drawing space; the wrapper scales it to the panel width.

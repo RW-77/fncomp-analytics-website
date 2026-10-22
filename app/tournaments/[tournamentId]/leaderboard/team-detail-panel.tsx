@@ -120,8 +120,9 @@ function StatTile({ label, value }: { label: string; value: string | number }) {
 }
 
 function GameCard({ game }: { game: StandingGame }) {
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-lg bg-[#1b2334] px-3 py-2.5">
+  const className = "flex items-center justify-between gap-2 rounded-lg bg-[#1b2334] px-3 py-2.5"
+  const content = (
+    <>
       <div>
         <div className="text-[10px] tracking-[0.08em] uppercase text-slate-500">
           Game {game.game}
@@ -138,6 +139,19 @@ function GameCard({ game }: { game: StandingGame }) {
       >
         {game.placement != null ? ordinal(game.placement) : "—"}
       </div>
-    </div>
+    </>
+  )
+
+  // Games with a processed replay open their match page in a new tab.
+  if (!game.matchId) return <div className={className}>{content}</div>
+  return (
+    <a
+      href={`/matches/${game.matchId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(className, "transition-colors hover:bg-[#232d42]")}
+    >
+      {content}
+    </a>
   )
 }
